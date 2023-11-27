@@ -1,0 +1,6 @@
+EXAMPLES_MAP: dict
+__pyx_capi__: dict
+__test__: dict
+
+def full_output_example(*args, **kwargs): ...
+def loop_example(*args, **kwargs): ...

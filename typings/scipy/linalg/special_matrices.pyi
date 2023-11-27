@@ -1,0 +1,22 @@
+# Names in __all__ with no definition:
+#   as_strided
+#   block_diag
+#   circulant
+#   companion
+#   convolution_matrix
+#   dft
+#   fiedler
+#   fiedler_companion
+#   hadamard
+#   hankel
+#   helmert
+#   hilbert
+#   invhilbert
+#   invpascal
+#   kron
+#   leslie
+#   pascal
+#   toeplitz
+#   tri
+#   tril
+#   triu

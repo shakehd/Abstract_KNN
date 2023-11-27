@@ -1,0 +1,14 @@
+__f2py_numpy_version__: str
+__version__: str
+cdet_c: fortran
+cdet_r: fortran
+clu_c: fortran
+ddet_c: fortran
+ddet_r: fortran
+dlu_c: fortran
+sdet_c: fortran
+sdet_r: fortran
+slu_c: fortran
+zdet_c: fortran
+zdet_r: fortran
+zlu_c: fortran

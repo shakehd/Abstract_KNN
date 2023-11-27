@@ -1,0 +1,3 @@
+__test__: dict
+
+def call(*args, **kwargs): ...

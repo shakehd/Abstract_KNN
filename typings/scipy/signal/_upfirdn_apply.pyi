@@ -1,0 +1,3 @@
+__test__: dict
+
+def mode_enum(*args, **kwargs): ...

@@ -1,0 +1,3 @@
+from _typeshed import Incomplete
+
+def cossin(X, p: Incomplete | None = ..., q: Incomplete | None = ..., separate: bool = ..., swap_sign: bool = ..., compute_u: bool = ..., compute_vh: bool = ...): ...

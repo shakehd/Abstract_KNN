@@ -1,0 +1,3 @@
+from ._trlib import TRLIBQuadraticSubproblem as TRLIBQuadraticSubproblem
+
+def get_trlib_quadratic_subproblem(tol_rel_i: float = ..., tol_rel_b: float = ..., disp: bool = ...): ...

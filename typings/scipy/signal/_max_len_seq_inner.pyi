@@ -1,0 +1,1 @@
+__pythran__: tuple

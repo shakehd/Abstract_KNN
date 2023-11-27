@@ -1,0 +1,23 @@
+from scipy.sparse._base import issparse as issparse
+from scipy.sparse._csr import csr_matrix as csr_matrix
+from scipy.sparse.csgraph._validation import validate_graph as validate_graph
+from typing import Any, overload
+
+__test__: dict
+
+class NegativeCycleError(Exception):
+    def __init__(self, *args, **kwargs) -> None: ...
+
+def bellman_ford(csgraph, directed=..., indices=..., return_predecessors=..., 
+unweighted=...) -> Any: ...
+def dijkstra(csgraph, directed=..., indices=..., return_predecessors=..., 
+unweighted=..., limit=..., min_only=...) -> Any: ...
+@overload
+def floyd_warshall(csgraph, directed=..., return_predecessors=..., 
+unweighted=..., overwrite=...) -> Any: ...
+@overload
+def floyd_warshall(csgraph=..., directed=..., return_predecessors=...) -> Any: ...
+def johnson(csgraph, directed=..., indices=..., return_predecessors=..., 
+unweighted=...) -> Any: ...
+def shortest_path(csgraph, method=..., directed=..., return_predecessors=..., 
+unweighted=..., overwrite=..., indices=...) -> Any: ...
