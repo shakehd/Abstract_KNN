@@ -1,15 +1,14 @@
-
 from math import isclose
-from typing import Callable, Deque, Iterable, List
+from typing import Callable, Deque, Iterable
 from space_partition.random_ball_tree import Leaf, Node, TNode
 from base_types import Array1xM
 from utils.ndball import NDBall
 from utils.utils import squared_dist
 
 def search_partitions[TInput: Array1xM | NDBall](queue: Deque[TNode], point: TInput,
-                       find_closest_child: Callable[[TInput, Node], Iterable[TNode]]) -> List[Leaf]:
+                       find_closest_child: Callable[[TInput, Node], Iterable[TNode]]) -> Iterable[Leaf]:
 
-  partitions: List[Leaf] = []
+  partitions: Iterable[Leaf] = []
 
   while True:
     try:

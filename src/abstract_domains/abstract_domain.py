@@ -1,11 +1,21 @@
+# -*- coding: utf-8 -*-
+# =============================================================================
+# File: abstract_domain.py
+# Updated: 05/11/2022
+# =============================================================================
+'''Define an abstract domain'''
+# =============================================================================
+# Dependencies:
+#   ../base.py
+# =============================================================================
+
 from __future__ import annotations
 from abc import abstractmethod
-from typing import Any, Self
+from typing import Any, Type
 
 from typings.base_types import Boolean, String
 
-
-class AbstractDomain[T]:
+class AbstractDomain:
     '''Represent an abstract domain'''
 
     def get_type(self) -> String:
@@ -25,9 +35,9 @@ class AbstractDomain[T]:
     @staticmethod
     @abstractmethod
     def intersect(
-        domain1: T,
-        domain2: T
-    ) -> T | None:
+        abstract_domain1: Type[AbstractDomain],
+        abstract_domain2: Type[AbstractDomain]
+    ) -> Type[AbstractDomain] | None:
         '''
         Return the intersection of the two given abstract domains
         :param abstract_domain1: First abstract domain to intersect
@@ -39,9 +49,9 @@ class AbstractDomain[T]:
     @staticmethod
     @abstractmethod
     def join(
-        domain1: T | None,
-        domain2: T | None
-    ) -> T | None:
+        abstract_domain1: Type[AbstractDomain] | None,
+        abstract_domain2: Type[AbstractDomain] | None
+    ) -> Type[AbstractDomain] | None:
         '''
         Return the union of the two given abstract domains
         :param interval1: First abstract domain to join
@@ -51,8 +61,8 @@ class AbstractDomain[T]:
         pass
 
     @abstractmethod
-    def dominates(self: Self,
-        other: T
+    def dominates(self,
+        other: Type[AbstractDomain]
     ) -> Boolean:
         '''
         Return True if the abstract domain dominates the given one, otherwise return False
@@ -62,8 +72,8 @@ class AbstractDomain[T]:
         pass
 
     @abstractmethod
-    def dominated_by(self: Self,
-        other: T
+    def dominated_by(self,
+        other: Type[AbstractDomain]
     ) -> Boolean:
         '''
         Return True if the abstract domain is dominated by the given one, otherwise return False
@@ -73,8 +83,8 @@ class AbstractDomain[T]:
         pass
 
     @abstractmethod
-    def strictly_dominates(self: Self,
-        other: T
+    def strictly_dominates(self,
+        other: Type[AbstractDomain]
     ) -> Boolean:
         '''
         Return True if the abstract domain strictly dominates the given one, otherwise return False
@@ -84,8 +94,8 @@ class AbstractDomain[T]:
         pass
 
     @abstractmethod
-    def strictly_dominated_by(self: Self,
-        other: T
+    def strictly_dominated_by(self,
+        other: Type[AbstractDomain]
     ) -> Boolean:
         '''
         Return True if the abstract domain is strictly dominated by the given one, otherwise return False
@@ -95,7 +105,7 @@ class AbstractDomain[T]:
         pass
 
     @abstractmethod
-    def to_string(self: Self) -> String:
+    def to_string(self) -> String:
         '''
         Return the abstract domain information as a string
         :return: The abstract domain as a string
@@ -103,7 +113,7 @@ class AbstractDomain[T]:
         pass
 
     @abstractmethod
-    def to_python_type(self: Self) -> Any:
+    def to_python_type(self) -> Any:
         '''
         Return the abstract domain information using the best python type to represent them
         :return: The abstract domain as python type

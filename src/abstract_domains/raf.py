@@ -11,41 +11,43 @@
 # =============================================================================
 
 from __future__ import annotations
-from dataclasses import InitVar, dataclass, field
-from typing import Optional, Self, Type
+from typing import Type
 
 import numbers
 import numpy as np
 
-from typings.base_types import Vector, Boolean, Integer, Number, String, Array1xM
-from src.utils.hyperplane import Hyperplane
+from robustness.base import Vector
+from robustness.utils.hyperplane import Hyperplane
 
 from .abstract_domain import AbstractDomain
+from robustness import Boolean, Integer, Number, String
 
-@dataclass
-class Raf(AbstractDomain['Raf']):
+class Raf(AbstractDomain):
     '''Represents the RAF abstract domain'''
 
-    center: float = field(default=0.0)
-    coefs: InitVar[Optional[Array1xM]] = field(default=None)
-    noise: float = field(default=0.0)
-    dimensions: InitVar[int] = field(default=0)
-    single_variable: Integer  = field(default=1)
-    linear: Array1xM = field(init=False)
-
-    def __post_init__(self: Self, coefs: Optional[Array1xM], dimensions: int) -> None:
-        if coefs is None:
-            self.linear: Array1xM = np.zeros(dimensions)
-
-    def size(self: Self):
+    def __init__(self,
+        center: Number = 0.0,
+        linear = None,
+        noise: Number = 0.0,
+        dimensions: int = 0,
+        single_variable = -1
+    ) -> None:
+        if linear is None:
+            linear = np.zeros(dimensions)
+        self.center = center
+        self.linear = linear
+        self.noise = abs(noise)
+        self.single_variable = single_variable
+    
+    def size(self):
         return self.linear.shape[0]
-
+    
     def lowerbound(self):
         if self.is_single_variable():
             noise = self.linear[self.single_variable] if self.single_variable < self.size() else self.noise
             return self.center - noise
         return self.center - np.sum(np.absolute(self.linear)) - self.noise
-
+    
     def upperbound(self):
         if self.is_single_variable():
             noise = self.linear[self.single_variable] if self.single_variable < self.size() else self.noise
@@ -60,56 +62,56 @@ class Raf(AbstractDomain['Raf']):
             return True
         has_noise = 1 if self.noise != 0.0 else 0
         return np.count_nonzero(self.linear) + has_noise <= 1
-
+    
     @staticmethod
     def intersect(
-        domain1: Raf | None,
-        domain2: Raf | None
-    ) -> Raf | None:
+        interval1: Type[Raf] | None,
+        interval2: Type[Raf] | None
+    ) -> Type[Raf] | None:
         return None
-
+    
     @staticmethod
     def join(
-        domain1: Raf | None,
-        domain2: Raf | None
-    ) -> Raf | None:
+        interval1: Type[Raf] | None,
+        interval2: Type[Raf] | None
+    ) -> Type[Raf] | None:
         return None
 
-    def dominates(self: Self,
-        other: Raf | Number
+    def dominates(self,
+        other: Type[Raf] | Number
     ) -> Boolean:
-        if isinstance(other, Raf):
+        if issubclass(type(other), Raf):
             return (self - other).lowerbound() >= 0.0
         return self.lowerbound() >= other
 
-    def dominated_by(self: Self,
-        other: Raf | Number
+    def dominated_by(self,
+        other: Type[Raf] | Number
     ) -> Boolean:
-        if isinstance(other, Raf):
+        if issubclass(type(other), Raf):
             return (self - other).upperbound() <= 0.0
         return self.upperbound() <= other
 
-    def strictly_dominates(self: Self,
-        other: Raf | Number
+    def strictly_dominates(self,
+        other: Type[Raf] | Number
     ) -> Boolean:
-        if isinstance(other, Raf):
+        if issubclass(type(other), Raf):
             return (self - other).lowerbound() > 0.0
         return self.lowerbound() > other
-
-    def strictly_dominated_by(self: Self,
-        other: Raf | Number
+    
+    def strictly_dominated_by(self,
+        other: Type[Raf] | Number
     ) -> Boolean:
-        if isinstance(other, Raf):
+        if issubclass(type(other), Raf):
             return (self - other).upperbound() < 0.0
         return self.upperbound() < other
-
-    def to_string(self: Self) -> String:
+    
+    def to_string(self) -> String:
         return f"<{self.center}, {self.linear}, {self.noise}>: [{self.lowerbound()}, {self.upperbound()}]"
 
-    def to_python_type(self: Self) -> Vector[Number]:
+    def to_python_type(self) -> Vector[Number]:
         return [self.center, self.linear, self.noise]
 
-    def single_square(self: Self):
+    def single_square(self):
         linear = np.zeros(self.size())
         if self.single_variable < self.size():
             linear[self.single_variable] = 2 * self.center * self.linear[self.single_variable]
@@ -118,7 +120,7 @@ class Raf(AbstractDomain['Raf']):
             noise = 2 * self.center * self.noise + self.noise ** 2
         return Raf(self.center ** 2, linear, noise)
 
-    def square(self: Self):
+    def square(self):
         if self.is_single_variable():
             return self.single_square()
         noise = abs(self.noise**2 + 2 * self.center * self.noise)
@@ -129,14 +131,14 @@ class Raf(AbstractDomain['Raf']):
                 noise += abs(2 * self.linear[i] * self.linear[j])
         return Raf(self.center**2, 2 * self.center * self.linear, noise)
 
-    def __lt__(self: Self,
+    def __lt__(self,
         other: Type[Raf] | Number
     ) -> Boolean:
         if issubclass(type(other), Raf):
             return self.lowerbound() < other.lowerbound() or (self.lowerbound() == other.lowerbound() and self.upperbound() < other.upperbound())
         return self.lowerbound() < other
-
-    def __neg__(self: Self) -> Raf:
+    
+    def __neg__(self):
         return Raf(-self.center, -self.linear, abs(self.noise))
 
     def __add__(self,
@@ -162,7 +164,7 @@ class Raf(AbstractDomain['Raf']):
                 single_variable=self.single_variable if self.single_variable == other.single_variable else -1
             )
         return Raf(self.center - other, self.linear, self.noise, single_variable=self.single_variable)
-
+    
     def __mul__(self,
         other: Type[Raf] | Number
     ) -> Type[Raf]:
@@ -191,7 +193,7 @@ class Raf(AbstractDomain['Raf']):
             + (x_norm_one + self.noise) * (y_norm_one + other.noise)
             - 0.5 * xy_abs,
         )
-
+    
     def __abs__(self) -> Type[Raf]:
         if self.lowerbound() >= 0.0:
             return self
@@ -264,7 +266,7 @@ class Raf(AbstractDomain['Raf']):
         h_c = h / -h.coefficients[n - 1]
 
         return Raf(h_c.constant, h_c.coefficients[0:n-2], abs(h_c.coefficients[n - 2]) + delta)
-
+    
     def __pow__(self,
         n: Integer
     ) -> Type[Raf]:

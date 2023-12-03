@@ -2,9 +2,9 @@ from __future__ import annotations
 from collections import deque
 
 from dataclasses import InitVar, dataclass, field
-from typing import List, Optional, Self, Tuple
+from typing import Iterable,  Optional, Self, Tuple
 from space_partition.search_algorithm import find_closest_child_from_point, find_closest_from_ball, search_partitions
-from base_types import Array1xM, ArrayNxM
+from typings.base_types import Array1xM, ArrayNxM
 import numpy as np
 import miniball as mb
 from utils.hyperplane import Hyperplane
@@ -14,7 +14,6 @@ from utils.ndball import NDBall
 from utils.utils import squared_dist
 
 type TNode = Node | Leaf
-
 
 @dataclass
 class Leaf:
@@ -60,7 +59,6 @@ class Node:
 
     return Hyperplane(coefs, const)
 
-
 @dataclass
 class RandomBallTree:
 
@@ -71,20 +69,20 @@ class RandomBallTree:
   def __post_init__(self: Self, dataset: ArrayNxM) -> None:
       self.root = _build_tree(dataset, self.leaf_size);
 
-  def query_point(self: Self, point: Array1xM) -> ArrayNxM:
+  def query_point(self: Self, point: Array1xM, init_val: float = 0.0) -> ArrayNxM:
 
     def enclosing_ball_radius(partition: Leaf) -> np.float_:
-      return squared_dist(point, partition.ball.center) + partition.ball.radius
+      return init_val + squared_dist(point, partition.ball.center) + partition.ball.radius
 
-    partitions: List[Leaf] = search_partitions(deque([self.root]), point, find_closest_child_from_point)
+    partitions: Iterable[Leaf] = search_partitions(deque([self.root]), point, find_closest_child_from_point)
 
     ball_radius: np.float_ = np.min(list(map(enclosing_ball_radius, partitions)))
 
     return self.query_radius(NDBall(point, ball_radius))
 
   def query_radius(self: Self, ball: NDBall) -> ArrayNxM:
-    points: List[Array1xM] = []
-    partitions: List[Leaf] = search_partitions(deque([self.root]), ball, find_closest_from_ball)
+    points: Iterable[Array1xM] = []
+    partitions: Iterable[Leaf] = search_partitions(deque([self.root]), ball, find_closest_from_ball)
 
     for partition in partitions:
       dists = ((partition.points - ball.center)**2).sum(axis=1)

@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Self
-from base_types import Array1xM
+from typings.base_types import Array1xM
 import numpy as np
 
 

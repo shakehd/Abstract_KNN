@@ -1,58 +1,76 @@
-from __future__ import annotations
-from dataclasses import dataclass
-from typing import Self
+# -*- coding: utf-8 -*-
+# =============================================================================
+# File: interval.py
+# Updated: 05/11/2022
+# =============================================================================
+'''Define the interval abstract domain'''
+# =============================================================================
+# Dependencies:
+#   ./abstract_domain.py
+#   ../base.py
+# =============================================================================
 
-from typings.base_types import Vector, Boolean, Integer, Number, String
+from __future__ import annotations
+from typing import Type
+
+from from typings.base_types import Vector, Boolean, Integer, Number, String
 
 from .abstract_domain import AbstractDomain
 
-
-@dataclass
-class Interval(AbstractDomain['Interval']):
+class Interval(AbstractDomain):
     '''Represent the interval abstract domain'''
 
-    lb: Number
-    ub: Number
+    def __init__(self,
+        lb: Number,
+        ub: Number
+    ) -> None:
+        '''
+        Let the class initialize the object's attributes
+        :param lb: Lower bound of the interval
+        :param ub: Upper bound of the interval
+        '''
+        self.lb = lb
+        self.ub = ub
 
     @staticmethod
     def intersect(
-        domain1: Interval | None,
-        domain2: Interval | None
-    ) -> Interval | None:
+        interval1: Type[Interval] | None,
+        interval2: Type[Interval] | None
+    ) -> Type[Interval] | None:
         '''
         Return the intersection of the two given intervals
         :param interval1: First interval to intersect
         :param interval2: Second interval to intersect
         :return: The intersection of the two given intervals
         '''
-        if domain1 is None or domain2 is None:
+        if interval1 == None or interval2 == None:
             return None
 
-        lb = max(domain1.lb, domain2.lb)
-        ub = min(domain1.ub, domain2.ub)
+        lb = max(interval1.lb, interval2.lb)
+        ub = min(interval1.ub, interval2.ub)
 
         return Interval(lb, ub) if lb <= ub else None
 
     @staticmethod
     def join(
-        domain1: Interval | None,
-        domain2: Interval | None
-    ) -> Interval | None:
+        interval1: Type[Interval] | None,
+        interval2: Type[Interval] | None
+    ) -> Type[Interval] | None:
         '''
         Return the union of the two given intervals
         :param interval1: First interval to join
         :param interval2: Second interval to join
         :return: The union of the two given intervals
         '''
-        if domain1 == None:
-            return domain2
-        if domain2 == None:
-            return domain1
+        if interval1 == None:
+            return interval2
+        if interval2 == None:
+            return interval1
 
-        return Interval(min(domain1.lb, domain2.lb), max(domain1.ub, domain2.ub))
+        return Interval(min(interval1.lb, interval2.lb), max(interval1.ub, interval2.ub))
 
-    def dominates(self: Self,
-        other: Interval | Number
+    def dominates(self,
+        other: Type[Interval] | Number
     ) -> Boolean:
         '''
         Return True if the interval dominates the given one, otherwise return False
@@ -60,44 +78,42 @@ class Interval(AbstractDomain['Interval']):
         :return: Whether or not the interval dominates the given one
         '''
         if issubclass(type(other), Interval):
-            return self.lb >= other.ub #type: ignore
-        return self.lb >= other #type: ignore
+            return self.lb >= other.ub
+        return self.lb >= other
 
-    def dominated_by(self: Self,
-        other: Interval | Number
+    def dominated_by(self,
+        other: Type[Interval] | Number
     ) -> Boolean:
         '''
         Return True if the interval is dominated by the given one, otherwise return False
         :param other: Interval to compare
         :return: Whether or not the interval is dominated by the given one
         '''
-
-        if isinstance(other, Interval):
+        if issubclass(type(other), Interval):
             return self.ub <= other.lb
-
         return self.ub <= other
 
-    def strictly_dominates(self: Self,
-        other: Interval | Number
+    def strictly_dominates(self,
+        other: Type[Interval] | Number
     ) -> Boolean:
         '''
         Return True if the interval strictly dominates the given one, otherwise return False
         :param other: Interval to compare
         :return: Whether or not the interval strictly dominates the given one
         '''
-        if isinstance(other, Interval):
+        if issubclass(type(other), Interval):
             return self.lb > other.ub
         return self.lb > other
 
-    def strictly_dominated_by(self: Self,
-        other: Interval | Number
+    def strictly_dominated_by(self,
+        other: Type[Interval] | Number
     ) -> Boolean:
         '''
         Return True if the interval is strictly dominated by the given one, otherwise return False
         :param other: Interval to compare
         :return: Whether or not the interval is strictly dominated by the given one
         '''
-        if isinstance(other, Interval):
+        if issubclass(type(other), Interval):
             return self.ub < other.lb
         return self.ub < other
 
@@ -115,8 +131,8 @@ class Interval(AbstractDomain['Interval']):
         '''
         return [self.lb, self.ub]
 
-    def __lt__(self: Self,
-        other: Interval | Number
+    def __lt__(self,
+        other: Type[Interval] | Number
     ) -> Boolean:
         '''
         Overloading of the less then comparison operator
@@ -124,43 +140,43 @@ class Interval(AbstractDomain['Interval']):
         :return: Whether or not the interval has a lower bound less than that of the given one
         '''
         # Note: it does not coincide with the partial order of the domain’s lattice
-        if isinstance(other, Interval):
+        if issubclass(type(other), Interval):
             return self.lb < other.lb or (self.lb == other.lb and self.ub < other.ub)
         return self.lb < other
 
-    def __add__(self: Self,
-        other: Interval | Number
-    ) -> Interval:
+    def __add__(self,
+        other: Type[Interval] | Number
+    ) -> Type[Interval]:
         '''
         Overloading of the addition operator
         :param other: Second addend
         :return: Result of the sum
         '''
-        if isinstance(other, Interval):
+        if issubclass(type(other), Interval):
             return Interval(self.lb + other.lb, self.ub + other.ub)
         return Interval(self.lb + other, self.ub + other)
 
-    def __sub__(self: Self,
-        other: Interval | Number
-    ) -> Interval:
+    def __sub__(self,
+        other: Type[Interval] | Number
+    ) -> Type[Interval]:
         '''
         Overloading of the subtraction operator
         :param other: Subtrahend
         :return: Result of the difference
         '''
-        if isinstance(other, Interval):
+        if issubclass(type(other), Interval):
             return Interval(self.lb - other.ub, self.ub - other.lb)
         return Interval(self.lb - other, self.ub - other)
 
-    def __mul__(self: Self,
-        other: Interval | Number
-    ) -> Interval:
+    def __mul__(self,
+        other: Type[Interval] | Number
+    ) -> Type[Interval]:
         '''
         Overloading of the multiplication operator
         :param other: Second factor
         :return: Result of multiplication
         '''
-        if isinstance(other, Interval):
+        if issubclass(type(other), Interval):
             return Interval(
                 min(self.lb * other.lb, self.lb * other.ub, self.ub * other.lb, self.ub * other.ub),
                 max(self.lb * other.lb, self.lb * other.ub, self.ub * other.lb, self.ub * other.ub)
@@ -171,7 +187,7 @@ class Interval(AbstractDomain['Interval']):
         )
 
 
-    def __abs__(self: Self) -> Interval:
+    def __abs__(self) -> Type[Interval]:
         '''
         Overloading of the absolute value operator
         :return: Absolute value of the object
@@ -180,9 +196,9 @@ class Interval(AbstractDomain['Interval']):
             return Interval(min(abs(self.lb), abs(self.ub)), max(abs(self.lb), abs(self.ub)))
         return Interval(0, max(abs(self.lb), abs(self.ub)))
 
-    def __pow__(self: Self,
+    def __pow__(self,
         n: Integer
-    ) -> Interval:
+    ) -> Type[Interval]:
         '''
         Overloading of the exponentiation operator
         :param n: Exponent
