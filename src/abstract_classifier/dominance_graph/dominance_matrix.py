@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Type
+import numpy as np
 
-from base_types import ArrayNxN
+from typings.base_types import ArrayNxM, ArrayNxN
 
 
 class Position(Enum):

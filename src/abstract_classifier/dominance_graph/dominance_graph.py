@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Iterable
+from src.perturbations.perturbation import Perturbation
 
 from typings.base_types import Array1xM, ArrayNxM, String
 
@@ -20,8 +21,4 @@ class Edge:
 @dataclass
 class DominanceGraph:
   vertices: Iterable[Vertex]
-
-
-def build_dominance_graph(points: ArrayNxM) -> 'DominanceGraph':
-    return DominanceGraph([])
 

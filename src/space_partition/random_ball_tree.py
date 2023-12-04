@@ -93,21 +93,20 @@ class RandomBallTree:
 
 def _build_tree(dataset: ArrayNxM, leaf_size: int) -> TNode:
 
-  def _split_dataset(dataset: ArrayNxM) -> Tuple[Tuple[Array1xM, ArrayNxM], Tuple[Array1xM, ArrayNxM]]:
+  def split_dataset(dataset: ArrayNxM) -> Tuple[Tuple[Array1xM, ArrayNxM], Tuple[Array1xM, ArrayNxM]]:
     centroids, labels = kmeans2(dataset, k = 2, minit='++', iter=1)
 
     left_side_points = dataset[labels == 0]
     right_side_points = dataset[labels == 1]
 
-    return (centroids[0].reshape(1, -1), left_side_points), \
-           (centroids[1].reshape(1, -1), right_side_points)
+    return (centroids[0], left_side_points), (centroids[1], right_side_points)
 
   nrows: int = dataset.shape[0]
 
   if nrows <= leaf_size:
     return Leaf(dataset)
   else:
-    (l_ref, l_points), (r_ref, r_points) = _split_dataset(dataset)
+    (l_ref, l_points), (r_ref, r_points) = split_dataset(dataset)
     left_node = _build_tree(l_points, leaf_size)
     right_node = _build_tree(r_points, leaf_size)
 
