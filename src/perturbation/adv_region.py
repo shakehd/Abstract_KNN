@@ -6,7 +6,7 @@ from src.abstract_domain.interval import Interval
 from typings.base_types import NDVector, Integer, Real, String
 
 @dataclass
-class LInifinityPerturbation:
+class AdversialRegion:
   point: NDVector
   epsilon: Real = field(default_factory=float)
   num_feature_ix: Integer = field(default_factory=int)

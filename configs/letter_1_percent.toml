@@ -1,0 +1,13 @@
+[knn_params]
+k = [1, 2, 3, 5, 7]
+distance_metric = "euclidean"
+save_in = "letter\\1_percent"
+
+[dataset]
+format = "libsvm"
+training_set = "letter.scale"
+test_set = "letter.scale.t"
+
+[abstraction]
+epsilon = 0.01
+
