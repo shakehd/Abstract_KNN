@@ -1,6 +1,0 @@
-from _typeshed import Incomplete
-from numpy.linalg import LinAlgError as LinAlgError
-
-class LinAlgWarning(RuntimeWarning): ...
-
-def norm(a, ord: Incomplete | None = ..., axis: Incomplete | None = ..., keepdims: bool = ..., check_finite: bool = ...): ...

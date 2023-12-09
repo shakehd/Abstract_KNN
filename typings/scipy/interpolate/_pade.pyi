@@ -1,3 +1,0 @@
-from _typeshed import Incomplete
-
-def pade(an, m, n: Incomplete | None = ...): ...

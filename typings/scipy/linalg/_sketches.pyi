@@ -1,3 +1,0 @@
-from _typeshed import Incomplete
-
-def clarkson_woodruff_transform(input_matrix, sketch_size, seed: Incomplete | None = ...): ...

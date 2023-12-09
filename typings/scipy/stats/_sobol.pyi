@@ -1,3 +1,0 @@
-__test__: dict
-
-def get_poly_vinit(*args, **kwargs): ...

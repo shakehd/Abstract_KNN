@@ -1,3 +1,0 @@
-__test__: dict
-
-def givens_elimination(*args, **kwargs): ...

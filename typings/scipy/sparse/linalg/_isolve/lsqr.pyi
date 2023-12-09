@@ -1,3 +1,0 @@
-from _typeshed import Incomplete
-
-def lsqr(A, b, damp: float = ..., atol: float = ..., btol: float = ..., conlim: float = ..., iter_lim: Incomplete | None = ..., show: bool = ..., calc_var: bool = ..., x0: Incomplete | None = ...): ...

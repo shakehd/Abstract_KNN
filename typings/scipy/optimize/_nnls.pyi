@@ -1,3 +1,0 @@
-from _typeshed import Incomplete
-
-def nnls(A, b, maxiter: Incomplete | None = ...): ...

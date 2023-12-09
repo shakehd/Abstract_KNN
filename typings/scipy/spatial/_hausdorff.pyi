@@ -1,3 +1,0 @@
-__test__: dict
-
-def directed_hausdorff(*args, **kwargs): ...

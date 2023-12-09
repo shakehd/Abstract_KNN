@@ -1,3 +1,0 @@
-__test__: dict
-pade_UV_calc: fused_cython_function
-pick_pade_structure: fused_cython_function

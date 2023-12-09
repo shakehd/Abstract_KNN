@@ -1,3 +1,0 @@
-from typing import Any
-
-def odeint(fun, y0, t, args=..., Dfun=..., col_deriv=..., ml, mu, full_output=..., rtol, atol, tcrit, h0=..., hmax=..., hmin=..., ixpr=..., mxstep=..., mxhnil=..., mxordn=..., mxords=...) -> Any: ...

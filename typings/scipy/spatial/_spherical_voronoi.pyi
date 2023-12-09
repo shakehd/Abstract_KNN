@@ -1,9 +1,0 @@
-from _typeshed import Incomplete
-
-class SphericalVoronoi:
-    radius: Incomplete
-    points: Incomplete
-    center: Incomplete
-    def __init__(self, points, radius: int = ..., center: Incomplete | None = ..., threshold: float = ...) -> None: ...
-    def sort_vertices_of_regions(self) -> None: ...
-    def calculate_areas(self): ...

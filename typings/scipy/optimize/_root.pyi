@@ -1,3 +1,0 @@
-from _typeshed import Incomplete
-
-def root(fun, x0, args=..., method: str = ..., jac: Incomplete | None = ..., tol: Incomplete | None = ..., callback: Incomplete | None = ..., options: Incomplete | None = ...): ...

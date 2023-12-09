@@ -1,14 +1,15 @@
 from dataclasses import dataclass, field
-from typing import Self, Sequence
+from typing import Any, Self, Sequence
+from nptyping import Float
 import numpy as np
 from src.abstract_domain.interval import Interval
 
 from typings.base_types import NDVector, Integer, Real, String
 
 @dataclass
-class AdversialRegion:
+class AdversarialRegion:
   point: NDVector
-  epsilon: Real = field(default_factory=float)
+  epsilon: float = field(default_factory=float)
   num_feature_ix: Integer = field(default_factory=int)
   adv_region: Sequence[Interval | Real] = field(init=False)
 
@@ -29,7 +30,7 @@ class AdversialRegion:
 
     return closest_point
 
-  def distance_to_point(self: Self, point: NDVector) -> Real:
+  def distance_to_point(self: Self, point: NDVector) -> np.float_:
     closest_point = self.perturbation_closest_point(point)
 
     return np.linalg.norm(closest_point - point)**2

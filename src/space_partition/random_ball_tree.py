@@ -2,18 +2,18 @@ from __future__ import annotations
 from collections import deque
 
 from dataclasses import InitVar, dataclass, field
-from typing import Iterable,  Optional, Self, Tuple
-from space_partition.search_algorithm import find_closest_child_from_point, find_closest_from_ball, search_partitions
+from typing import Iterable,  Optional, Self, Tuple, TypeVar
+from .. space_partition.search_algorithm import find_closest_child_from_point, find_closest_from_ball, search_partitions
 from typings.base_types import Array1xM, ArrayNxM
 import numpy as np
 import miniball as mb
-from utils.hyperplane import Hyperplane
+from .. utils.hyperplane import Hyperplane
 from scipy.cluster.vq import kmeans2
-from utils.ndball import NDBall
+from .. utils.ndball import NDBall
 
-from utils.utils import squared_dist
+from .. utils.distance import squared_dist
 
-type TNode = Node | Leaf
+TNode = TypeVar("TNode", bound= 'Node' | 'Leaf')
 
 @dataclass
 class Leaf:
@@ -34,13 +34,13 @@ class Leaf:
 
 @dataclass(init=False)
 class Node:
-  left_child: TNode
-  right_child:  TNode
+  left_child: 'Node' | Leaf
+  right_child: 'Node' | Leaf
 
   ref_point: Array1xM
   axial_hyperplane: Hyperplane
 
-  def __init__(self: Self, left_child: TNode, right_child: TNode,
+  def __init__(self: Self, left_child: 'Node' | Leaf, right_child: 'Node' | Leaf,
                ref_point: Optional[Array1xM] = None) -> None:
     self.left_child = left_child
     self.right_child = right_child
@@ -62,7 +62,7 @@ class Node:
 @dataclass
 class RandomBallTree:
 
-  root: TNode = field(init=False)
+  root: 'Node' | Leaf = field(init=False)
   dataset: InitVar[ArrayNxM]
   leaf_size: int = field(default=100)
 
@@ -81,7 +81,7 @@ class RandomBallTree:
     return self.query_radius(NDBall(point, ball_radius))
 
   def query_radius(self: Self, ball: NDBall) -> ArrayNxM:
-    points: Iterable[Array1xM] = []
+    points: list[Array1xM] = []
     partitions: Iterable[Leaf] = search_partitions(deque([self.root]), ball, find_closest_from_ball)
 
     for partition in partitions:
@@ -91,7 +91,7 @@ class RandomBallTree:
     return np.vstack(points)
 
 
-def _build_tree(dataset: ArrayNxM, leaf_size: int) -> TNode:
+def _build_tree(dataset: ArrayNxM, leaf_size: int) -> Node | Leaf:
 
   def split_dataset(dataset: ArrayNxM) -> Tuple[Tuple[Array1xM, ArrayNxM], Tuple[Array1xM, ArrayNxM]]:
     centroids, labels = kmeans2(dataset, k = 2, minit='++', iter=1)

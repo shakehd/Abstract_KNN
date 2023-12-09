@@ -1,3 +1,0 @@
-__test__: dict
-
-class PeakPropertyWarning(RuntimeWarning): ...

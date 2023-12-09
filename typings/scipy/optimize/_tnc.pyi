@@ -1,3 +1,0 @@
-from _typeshed import Incomplete
-
-def fmin_tnc(func, x0, fprime: Incomplete | None = ..., args=..., approx_grad: int = ..., bounds: Incomplete | None = ..., epsilon: float = ..., scale: Incomplete | None = ..., offset: Incomplete | None = ..., messages=..., maxCGit: int = ..., maxfun: Incomplete | None = ..., eta: int = ..., stepmx: int = ..., accuracy: int = ..., fmin: int = ..., ftol: int = ..., xtol: int = ..., pgtol: int = ..., rescale: int = ..., disp: Incomplete | None = ..., callback: Incomplete | None = ...): ...

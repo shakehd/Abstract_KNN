@@ -1,1 +1,0 @@
-from .minimize_trustregion_constr import _minimize_trustregion_constr as _minimize_trustregion_constr
