@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import List, Self
-from typings.base_types import Array1xM
+from typings.base_types import Array1xM, Real, String
 import numpy as np
 
 @dataclass(init=False)
@@ -19,11 +19,11 @@ class Hyperplane:
         return abs((np.dot(self.coefficients, p) - self.constant)) / coefs_norm
 
 
-    def __call__(self: Self, p:Array1xM):
+    def __call__(self: Self, p:Array1xM) -> Real:
         return np.dot(self.coefficients, p) + self.constant
 
 
-    def __str__(self: Self):
+    def __str__(self: Self) -> String:
         coefs_repr: List[str] = [f"{self.coefficients[i]} x_{i}"
                                  for i in range(0, self.coefficients.shape[0])]
         return ' + '.join(coefs_repr) + f" + {self.constant} = 0"

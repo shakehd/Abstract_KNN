@@ -2,9 +2,9 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, field
 from typing import  Optional, Self, Type
-from .. .dataset_loader.dataset import Dataset
-from .. .perturbation.adv_region import AdversarialRegion
-from .. .utils.distance import Selection, which_is_closer
+from .. dataset_loader.dataset import Dataset
+from .. perturbation.adv_region import AdversarialRegion
+from .. utils.distance import Selection, which_is_closer
 
 from typings.base_types import Integer, NDVector, Number, String
 
@@ -13,7 +13,7 @@ Id = String
 @dataclass
 class Vertex:
   id: Id
-  label: Optional[Number] = None
+  label: int = field(default=-1)
   edges: list[Id] = field(default_factory=list)
   required_ancestors: set[Id] = field(default_factory=set)
 
@@ -26,10 +26,10 @@ class DominanceGraph:
     return self.vertices[key]
 
 
-  def get_possible_neighbors(self: Self, k: Number) -> list[list[Vertex]]:
+  def get_neighbors(self: Self, k: Number) -> list[list[Number]]:
 
     queue: deque[list[Id]] = deque([[v] for v in self['root'].edges])
-    possible_neighbors: list[list[Vertex]] = []
+    possible_labels: list[list[Number]] = []
 
     while True:
       try:
@@ -40,7 +40,7 @@ class DominanceGraph:
 
         if len(neighbors) == k:
 
-          possible_neighbors.append([self[id] for id in neighbors])
+          possible_labels.append([self[id].label for id in neighbors])
 
         else:
           sneighbors: set[Id] = set(neighbors)
@@ -55,7 +55,7 @@ class DominanceGraph:
       except IndexError:
         break
 
-    return possible_neighbors
+    return possible_labels
 
 
   @classmethod

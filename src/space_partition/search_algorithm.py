@@ -8,7 +8,7 @@ from src.utils.distance import Selection, squared_dist, which_is_closer
 T = TypeVar("T", bound= Array1xM | NDBall)
 
 def search_partitions(queue: Deque[Node | Leaf], point: T,
-                       find_closest_child: Callable[[T, Node], Iterable[Node | Leaf]]) -> Iterable[Leaf]:
+                      find_closest_child: Callable[[T, Node], Iterable[Node | Leaf]]) -> list[Leaf]:
 
   partitions: list[Leaf] = []
 
@@ -55,6 +55,6 @@ def find_closest_from_ball(ball: NDBall, node: Node) -> Iterable[Node | Leaf]:
     if plane_dist <= ball.radius:
        return [node.left_child, node.right_child]
     if left_dist > right_dist:
-      return [node.left_child]
-    else:
       return [node.right_child]
+    else:
+      return [node.left_child]

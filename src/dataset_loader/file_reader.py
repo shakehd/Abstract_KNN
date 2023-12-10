@@ -25,8 +25,8 @@ def libsvm_reader(file_path: String) -> tuple[ArrayNxM, ArrayNxM]:
   if not exists(file_path):
     raise FileNotFoundError(f'No file found at: {file_path}')
 
-  points, labels = load_svmlight_file(file_path)# type: ignore
+  points, labels = load_svmlight_file(file_path)
 
-  points = points.toarray()# type: ignore
+  points = points.toarray()
 
-  return points, labels# type: ignore
+  return points, labels
