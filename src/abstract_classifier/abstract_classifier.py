@@ -5,7 +5,7 @@ from typing import Self
 from numpy import sqrt
 
 from .dominance_graph import DominanceGraph
-from .. dataset_loader.dataset import Dataset
+from .. dataset.dataset import Dataset
 from typings.base_types import Number
 from .. perturbation.adv_region import AdversarialRegion
 from .. space_partition.random_ball_tree import RandomBallTree

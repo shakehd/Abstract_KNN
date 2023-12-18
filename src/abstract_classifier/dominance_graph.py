@@ -2,7 +2,7 @@ from __future__ import annotations
 from collections import deque
 from dataclasses import dataclass, field
 from typing import  Optional, Self, Type
-from .. dataset_loader.dataset import Dataset
+from .. dataset.dataset import Dataset
 from .. perturbation.adv_region import AdversarialRegion
 from .. utils.distance import Selection, which_is_closer
 

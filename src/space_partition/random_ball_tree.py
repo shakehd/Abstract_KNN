@@ -4,7 +4,7 @@ from collections import deque
 from dataclasses import InitVar, dataclass, field
 from typing import Iterable,  Optional, Self, Tuple
 
-from .. dataset_loader.dataset import Dataset
+from .. dataset.dataset import Dataset
 from .. space_partition.search_algorithm import find_closest_child_from_point, find_closest_from_ball, search_partitions
 from typings.base_types import Array1xM, ArrayNxM, NDVector
 import numpy as np

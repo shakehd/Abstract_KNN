@@ -2,7 +2,7 @@ from typings.base_types import ArrayNxM, String
 from os.path import exists
 from pandas import read_csv
 from numpy import hsplit
-from sklearn.datasets import load_svmlight_file # type: ignore
+from sklearn.datasets import load_svmlight_file
 
 def csv_reader(file_path: String) -> tuple[ArrayNxM, ArrayNxM]:
 
