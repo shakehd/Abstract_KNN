@@ -8,7 +8,7 @@ import tomli as toml
 @dataclass
 class Configuration:
   settings: ChainMap[str, Any] = field(init=False)
-  init_config_file_path: InitVar[str] = field(default="../settings.toml")
+  init_config_file_path: InitVar[str] = field(default="./settings.toml")
 
   def __post_init__(self: Self, config_file_path: str) -> None:
 

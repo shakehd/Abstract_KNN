@@ -18,7 +18,7 @@ class DatasetParams(TypedDict, total=False):
 class Dataset:
   points: ArrayNxM
   labels: NDVector
-  end_cat_feature_ix: int
+  num_feature_start_ix: int
 
   num_points: Integer = field(init=False)
 
@@ -27,11 +27,11 @@ class Dataset:
     self.num_points = self.points.shape[0]
 
   def __getitem__(self: Self, key: Any) -> Dataset:
-    return Dataset(self.points[key], self.labels[key], self.end_cat_feature_ix)
+    return Dataset(self.points[key], self.labels[key], self.num_feature_start_ix)
 
   @classmethod
   def vstack(cls: type[Dataset], *datasets: Dataset) -> Dataset:
     points: list[ArrayNxM] = [d.points for d in datasets]
     labels: list[ArrayNxM] = [d.labels for d in datasets]
 
-    return cls(vstack(points), hstack(labels), datasets[0].end_cat_feature_ix)
+    return cls(vstack(points), hstack(labels), datasets[0].num_feature_start_ix)

@@ -33,7 +33,10 @@ class DataLoader:
 
     scaled_datasets = self.preprocess_data((training_dataset, test_dataset))
 
-    end_feature_ix = len(self.col_transformer.named_transformers_['one_hot_encoder'].get_feature_names_out()) - 1
+    if 'category_indexes' in self.params:
+      end_feature_ix = len(self.col_transformer.named_transformers_['one_hot_encoder'].get_feature_names_out()) - 1
+    else:
+      end_feature_ix = 0
 
     return Dataset(scaled_datasets[0], training_label, end_feature_ix), \
            Dataset(scaled_datasets[1], test_label, end_feature_ix)

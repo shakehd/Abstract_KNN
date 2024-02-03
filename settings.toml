@@ -1,0 +1,3 @@
+[base_dirs]
+config = "./configs"
+dataset_dir = "./datasets"
