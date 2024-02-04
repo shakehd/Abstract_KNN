@@ -44,7 +44,7 @@ class DominanceGraph:
 
     max_k: int = max(k_vals)
     possible_neighbors_label: defaultdict[int, list[list[int]]] = defaultdict(list)
-    possible_neighbors: list[list[int]] = []
+
 
     while True:
       try:
@@ -86,12 +86,12 @@ class DominanceGraph:
     )
     initial_vertices: set[Integer] = set(range(dataset.num_points))
 
-    for i in range(1, dataset.num_points):
-      if len(dom_matrix[str(i)].closer_vertices) >= max_path_length:
+    for i in range(dataset.num_points):
+      # if len(dom_matrix[str(i)].closer_vertices) >= max_path_length:
 
-        initial_vertices.discard(i)
+      #   initial_vertices.discard(i)
 
-      else:
+      # else:
 
         for j in range(i+1, dataset.num_points):
           match adv_region.get_closer(dataset.points[i], dataset.points[j], distance_metric):

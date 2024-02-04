@@ -84,7 +84,7 @@ def build_tree(dataset: Dataset, leaf_size: int, distance: DistanceMetric,
         medoid = cluster.medoids[0]
 
       radius = max(dist_matrix[medoid])
-      return Leaf(dataset, dataset.points[medoid], radius) #type: ignore
+      return Leaf(dataset, dataset.points[medoid], radius)
 
     else:
 

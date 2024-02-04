@@ -56,12 +56,14 @@ def main(params: Configuration, partition_size: int = 10,
     logger.info("-- Classifying point %s %s with label %s --\n", classified_points + 1 , test_point, test_label)
     adv_region = AdversarialRegion(test_point, epsilon, test_set.num_feature_start_ix)
 
-    logger.info("\t adversarial region: %s\n", adv_region)
+    logger.info("\tadversarial region: %s\n", adv_region)
 
     labels = abstract_classifier.get_classification(adv_region, k_values)
 
-    logger.info("\t labels :\n", labels)
-    logger.info('%s\n', indent(pformat(labels, compact=True),'\t\t'))
+    logger.info('\tlabels: ')
+    for k, item in labels.items():
+      logger.info(f'\t\tk = {k} -> {item}', )
+    logger.info('\n')
 
     for ix, (k, classification) in enumerate(labels.items()):
 
@@ -79,12 +81,10 @@ def main(params: Configuration, partition_size: int = 10,
           round(sum(stable_count) / (classified_points * len(k_values)) * 100, 1)
     ))
 
-    logger.info(f"======= Finished verifying point {classified_points} =========\n")
+    logger.info(f"-- Finished verifying point {classified_points} --\n")
 
-  logger.info("\t Provable stability percentage :\n")
+  logger.info("\t Provable stability percentage :")
   logger.info('\t\t\n'.join([f'{k}: {robust_points/classified_points}' for robust_points, k in zip(robust_count, k_values)]))
-
-
 
 if __name__ == "__main__":
 

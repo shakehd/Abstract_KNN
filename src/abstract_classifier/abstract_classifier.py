@@ -45,10 +45,8 @@ class AbstractClassifier:
       radius = self.distance_metric.pairwise([adv_region.point], closer_points.points)[0].max()
       closer_points = self.partition_tree.query_radius(adv_region.point, 2*radius, True)
 
-    # closer_points = closer_points[:20]
-
-    logger.info("\t closer points: \n")
-    logger.info('%s\n', indent(pformat(closer_points.points, compact=True),'\t\t'))
+    logger.debug("\t closer points: ")
+    logger.debug('%s\n', indent(pformat(closer_points.points, compact=True),'\t\t'))
 
     dominance_graph: DominanceGraph = DominanceGraph.build_dominance_graph(adv_region, closer_points, self.distance_metric)
     possible_classifications = dominance_graph.get_neighbors_label(k_vals)
