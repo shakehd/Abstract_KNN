@@ -39,11 +39,11 @@ class AbstractClassifier:
 
     init_radius: float = adv_region.epsilon*sqrt(adv_region.point.shape[0])
 
-    closer_points = self.partition_tree.query_point(adv_region.point, init_radius, True)
+    closer_points, dists = self.partition_tree.query_point(adv_region.point, init_radius, True)
 
-    while closer_points.num_points < max_k:
-      radius = self.distance_metric.pairwise([adv_region.point], closer_points.points)[0].max()
-      closer_points = self.partition_tree.query_radius(adv_region.point, 2*radius, True)
+    closer_points = closer_points[dists <= dists[6] + init_radius]
+    if closer_points.num_points < max_k:
+      logger.error(f'Closer points not enough !!')
 
     logger.debug("\t closer points: ")
     logger.debug('%s\n', indent(pformat(closer_points.points, compact=True),'\t\t'))

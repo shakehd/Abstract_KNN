@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from math import isclose
+from typing import Optional
 from sklearn.metrics import DistanceMetric
 import numpy as np
 from sklearn.decomposition import PCA
@@ -8,20 +9,19 @@ from src.space.hyperplane import Hyperplane
 from src.utils.priority_queue import PriorityItem, PriorityQueue
 from typings.base_types import ArrayNxM, NDVector
 
-
-
 @dataclass
 class Cluster:
-  idx: list[int]
+  left_indices: NDVector
   left_center: NDVector
 
-  right_idx: list[int]
+  right_indices: NDVector
   right_center: NDVector
 
 
-def two_means(dataset: ArrayNxM, indices: NDVector, distance_metric: DistanceMetric) -> Cluster:
+def two_means(dataset: ArrayNxM, indices: NDVector, distance_metric: DistanceMetric,
+              random_state: Optional[int] = None) -> Cluster:
 
-  left_center, right_center, points_idx = __get_initial_centers(dataset, indices, distance_metric)
+  left_center, right_center, points_idx = __get_initial_centers(dataset, indices, distance_metric, random_state)
 
   left_points_ids: PriorityQueue = PriorityQueue([])
   right_points_ids: PriorityQueue = PriorityQueue([])
@@ -70,14 +70,18 @@ def two_means(dataset: ArrayNxM, indices: NDVector, distance_metric: DistanceMet
 
       further_cluster.push(old_edge_point.val, old_edge_point.priority, delta)
 
-  return Cluster(left_points_ids.vals(), left_center,
-                 right_points_ids.vals(), right_center)
+  return Cluster(np.array(left_points_ids.vals()), left_center,
+                 np.array(right_points_ids.vals()), right_center)
 
 
 def __get_initial_centers(dataset: ArrayNxM, indices: NDVector,
-                          distance_metric: DistanceMetric) -> tuple[NDVector, NDVector, NDVector]:
+                          distance_metric: DistanceMetric,
+                          random_state: Optional[int]) -> tuple[NDVector, NDVector, NDVector]:
 
   if 'EuclideanDistance' in type(distance_metric).__name__:
+
+    if random_state is not None:
+      np.random.seed(random_state)
 
     point_idx: NDVector = np.random.permutation(indices)
     while np.allclose(dataset[point_idx[0]], dataset[point_idx[1]]):

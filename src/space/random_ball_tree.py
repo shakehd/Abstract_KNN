@@ -6,6 +6,8 @@ from typing import  Optional, Self
 from sklearn.metrics import DistanceMetric
 import kmedoids
 
+from src.space.clustering import two_means
+
 from .. dataset.dataset import Dataset
 from typings.base_types import Array1xM, ArrayNxM, NDVector
 import numpy as np
@@ -20,6 +22,7 @@ class Ball:
 @dataclass
 class Leaf:
   dataset: Dataset
+  indices: NDVector
   center: InitVar[NDVector]
   radius: InitVar[float]
 
@@ -58,65 +61,34 @@ class Node:
 
     return Hyperplane(coefs, const)
 
-def build_tree(dataset: Dataset, leaf_size: int, distance: DistanceMetric,
-              random_state: Optional[int], max_retries: int = 5) -> Node | Leaf:
+def build_tree(dataset: ArrayNxM, leaf_size: int, distance_metric: DistanceMetric,
+                random_state: Optional[int] = None) -> Node | Leaf:
 
-  dist_matrix = distance.pairwise(dataset.points)
+  def _go(dataset: ArrayNxM, indices: NDVector, ref_point: Optional[NDVector] = None) -> Node | Leaf:
 
-  def remove_row_column(array: ArrayNxM, to_remove: NDVector) -> ArrayNxM:
+    if len(indices) <= leaf_size:
 
-    idx = list(set(range(array.shape[0])).difference(to_remove))
-    return array[np.ix_(idx, idx)]
+      points= dataset[indices]
 
-  def is_imbalanced(fst_size: int, snd_size: int) -> bool:
+      if ref_point is None:
+        if 'Euclidean' in type(distance_metric).__name__:
+          ref_point = np.mean(points, axis=0)
 
-    ratio: float = fst_size / (fst_size + snd_size)
+        if 'Manhattan' in type(distance_metric).__name__:
+          ref_point = np.median(points, axis=0)
 
-    return max(ratio, 1-ratio) > 0.85
-
-  def _go(dist_matrix: ArrayNxM, dataset: Dataset, medoid: Optional[int] = None) -> Node | Leaf:
-
-    if dataset.num_points <= leaf_size:
-
-      if medoid is None:
-
-        cluster = kmedoids.fasterpam(dist_matrix, 1, init='random', random_state=random_state)
-        medoid = cluster.medoids[0]
-
-      radius = max(dist_matrix[medoid])
-      return Leaf(dataset, dataset.points[medoid], radius)
+      radius = np.max(distance_metric.pairwise([ref_point], points))
+      return Leaf(Dataset(np.zeros(1), np.zeros(1), 0), indices, ref_point, radius) #type: ignore
 
     else:
+      cluster = two_means(dataset, indices, distance_metric, random_state)
 
-      tries = 0
-      while tries < max_retries:
-        clusters = kmedoids.fasterpam(dist_matrix, 2, init='random', random_state=random_state)
+      left_node = _go(dataset, cluster.left_indices, cluster.left_center)
+      right_node = _go(dataset, cluster.right_indices, cluster.right_center)
 
-        fst_cluster = dataset[clusters.labels == 0]
-        snd_cluster = dataset[clusters.labels == 1]
+      return Node(left_node, right_node, ref_point)
 
-        if not is_imbalanced(fst_cluster.num_points, snd_cluster.num_points):
-          break
-
-        tries += 1
-
-      left_node = _go(remove_row_column(dist_matrix, np.where(clusters.labels == 1)[0]),
-                      fst_cluster,
-                      int(clusters.medoids[0] - np.count_nonzero(clusters.labels[:clusters.medoids[0]])))
-      right_node = _go(remove_row_column(dist_matrix, np.where(clusters.labels == 0)[0]),
-                      snd_cluster,
-                      int(clusters.medoids[1] - np.count_nonzero(clusters.labels[:clusters.medoids[1]] == 0)))
-
-      return Node(left_node, right_node, dataset.points[medoid])
-
-  return _go(dist_matrix, dataset)
-
-
-
-
-
-
-
+  return _go(dataset, np.arange(dataset.shape[0]))
 
 
 

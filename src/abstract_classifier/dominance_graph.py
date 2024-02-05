@@ -87,28 +87,26 @@ class DominanceGraph:
     initial_vertices: set[Integer] = set(range(dataset.num_points))
 
     for i in range(dataset.num_points):
-      # if len(dom_matrix[str(i)].closer_vertices) >= max_path_length:
 
-      #   initial_vertices.discard(i)
+      if len(dom_matrix[str(i)].closer_vertices) >= max_path_length:
+        initial_vertices.discard(i)
 
-      # else:
+      for j in range(i+1, dataset.num_points):
+        match adv_region.get_closer(dataset.points[i], dataset.points[j], distance_metric):
 
-        for j in range(i+1, dataset.num_points):
-          match adv_region.get_closer(dataset.points[i], dataset.points[j], distance_metric):
+          case Closer.FIRST:
+            dom_matrix[str(i)].edges.append(str(j))
+            dom_matrix[str(j)].closer_vertices.add(str(i))
+            initial_vertices.discard(j)
 
-            case Closer.FIRST:
-              dom_matrix[str(i)].edges.append(str(j))
-              dom_matrix[str(j)].closer_vertices.add(str(i))
-              initial_vertices.discard(j)
+          case Closer.SECOND:
+            dom_matrix[str(j)].edges.append(str(i))
+            dom_matrix[str(i)].closer_vertices.add(str(j))
+            initial_vertices.discard(i)
 
-            case Closer.SECOND:
-              dom_matrix[str(j)].edges.append(str(i))
-              dom_matrix[str(i)].closer_vertices.add(str(j))
-              initial_vertices.discard(i)
-
-            case Closer.BOTH:
-              dom_matrix[str(i)].edges.append(str(j))
-              dom_matrix[str(j)].edges.append(str(i))
+          case Closer.BOTH:
+            dom_matrix[str(i)].edges.append(str(j))
+            dom_matrix[str(j)].edges.append(str(i))
 
     root_edges: list[String]= [str(i) for i in initial_vertices]
     dom_matrix['root'] = Vertex('root', edges=root_edges)
