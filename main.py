@@ -20,7 +20,7 @@ from src.utils.configuration import Configuration
 
 logger = logging.getLogger(__name__)
 
-def main(params: Configuration, partition_size: int = 10,
+def main(params: Configuration, partition_size: int = 20,
          random_state: Optional[int] = None) -> None:
   @dataclass
   class Result:
@@ -96,8 +96,8 @@ if __name__ == "__main__":
     parser.add_argument('--random-state', metavar='RANDOM', type=int,
                         help='random state used when partitioning the dataset.')
     parser.add_argument('--partition-size', metavar='SIZE', type=int,
-                        default=10,
-                        help='max size of the data points in a partition (default 10).')
+                        default=20,
+                        help='max size of the data points in a partition (default 20).')
     parser.add_argument('--log ', dest='log_level',
                         choices=['INFO', 'DEBUG', 'ERROR'],
                         default='ERROR',

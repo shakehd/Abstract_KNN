@@ -24,7 +24,7 @@ class AbstractClassifier:
 
   def fit(self: Self,
           dataset: Dataset,
-          partition_size: int = 10,
+          partition_size: int = 20,
           random_state: Optional[int] = None) -> None:
 
     self.partition_tree = Partitions(dataset, self.distance_metric, partition_size, random_state)
@@ -37,7 +37,7 @@ class AbstractClassifier:
     if self.partition_tree is None:
       raise ValueError("Missing dataset!! Call fit first with a dataset.")
 
-    init_radius: float = adv_region.epsilon*sqrt(adv_region.point.shape[0])
+    init_radius: float = 2*adv_region.epsilon*sqrt(adv_region.point.shape[0])
 
     closer_points, dists = self.partition_tree.query_point(adv_region.point, init_radius, True)
 
@@ -51,17 +51,4 @@ class AbstractClassifier:
     dominance_graph: DominanceGraph = DominanceGraph.build_dominance_graph(adv_region, closer_points, self.distance_metric)
     possible_classifications = dominance_graph.get_neighbors_label(k_vals)
 
-    classifications: dict[int, set[int]] = defaultdict(set)
-
-    for k, possible_labels in possible_classifications.items():
-      classification: set[int] = set()
-
-      for labels in possible_labels:
-        counter: Counter[int] = Counter(labels)
-        max_freq: int = counter.most_common(1)[0][1]
-        most_freq_labels: list[int] = [k for k,v in counter.items() if v == max_freq]
-        classification = classification | set(most_freq_labels)
-
-      classifications[k] = classification
-
-    return classifications
+    return {k:classifications for k, classifications in possible_classifications.items() if k in k_vals}

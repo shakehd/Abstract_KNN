@@ -1,12 +1,13 @@
 from __future__ import annotations
-from collections import defaultdict, deque
+from collections import Counter, defaultdict, deque, namedtuple
 from dataclasses import dataclass, field
-from typing import  Optional, Self, Type
-from itertools import permutations
+from typing import  Any, NamedTuple, Optional, Self, Type
+from itertools import groupby
 import numpy as np
 from  pprint import pformat
 from textwrap import indent
 import logging
+
 
 
 from sklearn.metrics import DistanceMetric
@@ -29,7 +30,11 @@ class Vertex:
   edges: list[Id] = field(default_factory=list)
   closer_vertices: set[Id] = field(default_factory=set)
 
-
+class LabelItem(NamedTuple):
+  id: int
+  label: int
+  num: int
+  prefix: Counter[tuple[int, int]]
 @dataclass
 class DominanceGraph:
   vertices: dict[Id, Vertex]
@@ -38,40 +43,89 @@ class DominanceGraph:
     return self.vertices[key]
 
 
-  def get_neighbors_label(self: Self, k_vals: list[int]) -> dict[int, list[list[int]]]:
+  def get_neighbors_label(self: Self, k_vals: list[int]) -> dict[int, set[int]]:
 
-    queue: deque[list[Id]] = deque([[v] for v in self['root'].edges])
+    def can_add_label(label_item: LabelItem, labels: Counter[tuple[int, int]]) -> bool:
 
-    max_k: int = max(k_vals)
-    possible_neighbors_label: defaultdict[int, list[list[int]]] = defaultdict(list)
+      return labels[(label_item.id, label_item.label)] < label_item.num and \
+             labels >= Counter(dict(label_item.prefix))
+
+    def extend_label_seq(possible_labels: list[LabelItem],
+                         possible_neighbor_labels: dict[int, list[Counter[tuple[int, int]]]],
+                         k: int) -> None:
+
+      to_remove: list[LabelItem] = list()
+      for label_item in possible_labels:
+        added = False
+        for neighbor_labels in possible_neighbor_labels[k -1]:
+
+          if can_add_label(label_item, neighbor_labels):
+
+            new_label_counter = neighbor_labels + Counter([(label_item.id,label_item.label)])
+            if not new_label_counter in possible_neighbor_labels[k]:
+              possible_neighbor_labels[k].append(new_label_counter)
+            added = True
+
+        if not added:
+          to_remove.append(label_item)
+      if to_remove:
+        possible_labels = [item for item in possible_labels if item not in to_remove]
 
 
-    while True:
-      try:
-        neighbors: list[Id] = queue.popleft()
-        num_neighbors = len(neighbors)
+    def get_possible_classifications(possible_neighbor_labels: list[Counter[tuple[int, int]]]) -> set[int]:
+      classifications: set[int] = set()
 
-        if num_neighbors > max_k:
-          continue
+      for neighbor_labels in possible_neighbor_labels:
+        label_counter = Counter([elem[1] for elem in neighbor_labels.elements()])
+        max_freq: int = label_counter.most_common(1)[0][1]
+        most_freq_labels: list[int] = [label for label,v in label_counter.items() if v == max_freq]
+        classifications.update(most_freq_labels)
 
-        if num_neighbors in k_vals:
-           possible_neighbors_label[num_neighbors].append([self[id].label for id in neighbors])
+      return classifications
 
-        frontier_vertex_id: Id = neighbors[-1]
+    max_k = max(k_vals)
+    possible_neighbor_labels: dict[int, list[Counter[tuple[int, int]]]] = defaultdict(list)
+    possible_neighbor_labels[0] = [Counter()]
+    possible_labels: list[LabelItem] = list()
+    vertex_item: dict[str, int] = dict()
 
-        for adj_id in self[frontier_vertex_id].edges:
-          missing_ancestor: bool = bool(self[adj_id].closer_vertices) and \
-                                  (not self[adj_id].closer_vertices <= set(neighbors))
-          circular_path: bool = adj_id in neighbors
+    result:  dict[int, set[int]] = defaultdict(set)
 
-          if not missing_ancestor and not circular_path:
-            queue.append(neighbors + [adj_id])
+    all_vertices = [v for id,v in self.vertices.items() if id != 'root' ]
+    sorted_vertices:list[Vertex] = sorted(all_vertices, key=lambda val: len(val.closer_vertices))
+    k = 1
+    id = 1
+    for min_length, neighbors in groupby(sorted_vertices, lambda val: len(val.closer_vertices)):
 
-      except IndexError:
+      if k > max_k:
         break
 
-    return possible_neighbors_label
+      while k-1 < min_length:
+        extend_label_seq(possible_labels, possible_neighbor_labels, k)
+        result[k] = get_possible_classifications(possible_neighbor_labels[k])
+        k += 1
 
+      counter: Counter[tuple[int, tuple[tuple[tuple[int, int], int], ...]]] = Counter()
+      for neighbor in neighbors:
+        vertex_item[neighbor.id] = id
+        req_items = Counter([(vertex_item[id], self[id].label) for id in neighbor.closer_vertices])
+        counter.update([(neighbor.label, tuple(list(req_items.items())))])
+
+      for (label, req), count in counter.items():
+        possible_labels.append(LabelItem(id, label, count, Counter(dict(req))))
+
+
+      extend_label_seq(possible_labels, possible_neighbor_labels, k)
+      result[k] = get_possible_classifications(possible_neighbor_labels[k])
+      id += 1
+      k += 1
+
+    while k-1 <= max_k:
+      extend_label_seq(possible_labels, possible_neighbor_labels, k)
+      result[k] = get_possible_classifications(possible_neighbor_labels[k])
+      k += 1
+
+    return result
 
   @classmethod
   def build_dominance_graph(cls: Type[DominanceGraph],
