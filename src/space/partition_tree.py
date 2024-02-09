@@ -6,8 +6,8 @@ import numpy as np
 from sklearn.metrics import DistanceMetric
 from src.space.search import query_point, query_radius
 
-from typings.base_types import ArrayNxM, NDVector
-from src.space.random_ball_tree import Leaf, Node, build_tree
+from src.utils.base_types import ArrayNxM, NDVector
+from src.utils.tree import Leaf, Node, build_tree
 from src.dataset.dataset import Dataset
 
 @dataclass
@@ -22,14 +22,13 @@ class Partitions:
     self.root = build_tree(self.dataset.points, self.leaf_size, self.distance, random_state)
 
   def query_point(self: Self, point: NDVector, init_radius: float = 0.0,
-                  sorted: bool = False) -> tuple[Dataset, ArrayNxM]:
-
-    def enclosing_ball_radius(partition: Leaf) -> float:
-      return init_radius + self.distance.pairwise([point], [partition.ref_point])[0] + partition.ball.radius
+                  min_points: int = 7, sorted: bool = False) -> tuple[Dataset, ArrayNxM]:
 
     partitions: list[Leaf] = query_point(self.root, point, self.distance)
 
-    ball_radius: float = np.min(list(map(enclosing_ball_radius, partitions)))
+    closer_points: ArrayNxM = np.vstack([self.dataset.points[p.indices] for p in partitions])
+    dists: ArrayNxM = np.sort(self.distance.pairwise([point], closer_points)[0])
+    ball_radius: float = dists[min_points-1] + init_radius
 
     return self.query_radius(point, ball_radius, sorted)
 

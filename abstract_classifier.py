@@ -3,17 +3,15 @@ from dataclasses import dataclass
 from typing import Optional
 
 from sklearn.metrics import DistanceMetric
-from typings.base_types import Label
+from src.utils.base_types import Label
 from sys import argv
 from os.path import exists, join
 from tqdm import tqdm
 from numpy import zeros
-from pprint import pformat
-from textwrap import indent
 import logging
 import argparse
 
-from src.abstract_classifier.abstract_classifier import AbstractClassifier
+from src.abstract.classifier import AbstractClassifier
 from src.dataset.loader import DataLoader
 from src.perturbation.adv_region import AdversarialRegion
 from src.utils.configuration import Configuration
@@ -81,9 +79,9 @@ def main(params: Configuration, partition_size: int = 20,
           round(sum(stable_count) / (classified_points * len(k_values)) * 100, 1)
     ))
 
-    logger.info(f"-- Finished verifying point {classified_points} --\n")
+  logger.info(f"-- Finished verifying point {classified_points} --\n")
 
-  logger.info("\t Provable stability percentage :")
+  logger.info("\t Provable stability percentages :")
   logger.info('\t\t\n'.join([f'{k}: {robust_points/classified_points}' for robust_points, k in zip(robust_count, k_values)]))
 
 if __name__ == "__main__":

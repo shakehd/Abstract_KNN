@@ -3,23 +3,23 @@ from typing import Any, Self, Sequence
 from nptyping import Float
 import numpy as np
 from sklearn.metrics import DistanceMetric
-from src.abstract_domain.interval import Interval
-from src.space.distance import Closer, get_closer_with_l1, which_is_closer
+from ..abstract.domain.interval import Interval
+from ..space.distance import Closer, get_closer_with_l1, which_is_closer
 
-from typings.base_types import NDVector, Integer, Real, String
+from src.utils.base_types import NDVector
 
 @dataclass
 class AdversarialRegion:
   point: NDVector
   epsilon: float = field(default_factory=float)
-  num_feature_starting_ix: Integer = field(default_factory=int)
-  adv_region: Sequence[Interval | Real] = field(init=False)
+  num_feature_starting_ix: int = field(default_factory=int)
+  adv_region: Sequence[Interval | float] = field(init=False)
 
   def __post_init__(self: Self) -> None:
     self.adv_region = list(self.point[:self.num_feature_starting_ix])
 
     for num_feature in self.point[self.num_feature_starting_ix:]:
-      self.adv_region.append(Interval(num_feature - self.epsilon, num_feature + self.epsilon))
+      self.adv_region.append(Interval(max(num_feature - self.epsilon, 0.0), min(num_feature + self.epsilon, 1.0)))
 
   def get_closer(self: Self, fst_point: NDVector,
                    snd_point: NDVector, distance_metric: DistanceMetric) -> Closer:
@@ -73,7 +73,7 @@ class AdversarialRegion:
 
   #   return np.linalg.norm(closest_point - point)**2
 
-  def __str__(self: Self) -> String:
+  def __str__(self: Self) -> str:
     repr = ', '.join([str(elem) for elem in self.adv_region])
 
     return f'[{repr}]'

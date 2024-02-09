@@ -4,8 +4,8 @@ from typing import Callable, Deque, Iterable, TypeVar
 from numpy import float_, sign
 from sklearn.metrics import DistanceMetric
 
-from .random_ball_tree import Ball, Leaf, Node
-from typings.base_types import NDVector
+from ..utils.tree import Ball, Leaf, Node
+from src.utils.base_types import NDVector
 from src.space.distance import Closer, get_closer_with_l1, which_is_closer
 
 def query_point(tree: Node | Leaf, point: NDVector, distance: DistanceMetric) -> list[Leaf]:

@@ -1,17 +1,14 @@
 from __future__ import annotations
-from collections import deque
 
-from dataclasses import InitVar, dataclass
+from dataclasses import dataclass
 from typing import  Optional, Self
 from sklearn.metrics import DistanceMetric
-import kmedoids
 
 from src.space.clustering import two_means
 
-from .. dataset.dataset import Dataset
-from typings.base_types import Array1xM, ArrayNxM, NDVector
+from src.utils.base_types import Array1xM, ArrayNxM, NDVector
 import numpy as np
-from .hyperplane import Hyperplane
+from ..space.hyperplane import Hyperplane
 
 
 @dataclass(frozen=True)
@@ -21,18 +18,8 @@ class Ball:
 
 @dataclass
 class Leaf:
-  dataset: Dataset
   indices: NDVector
-  center: InitVar[NDVector]
-  radius: InitVar[float]
-
-
-  def __post_init__(self: Self, center: NDVector, radius: float) -> None:
-    self.ball = Ball(center, radius)
-
-  @property
-  def ref_point(self: Self) -> NDVector:
-    return self.ball.center;
+  ref_point: NDVector
 
 @dataclass(init=False)
 class Node:
@@ -77,8 +64,7 @@ def build_tree(dataset: ArrayNxM, leaf_size: int, distance_metric: DistanceMetri
         if 'Manhattan' in type(distance_metric).__name__:
           ref_point = np.median(points, axis=0)
 
-      radius = np.max(distance_metric.pairwise([ref_point], points))
-      return Leaf(Dataset(np.zeros(1), np.zeros(1), 0), indices, ref_point, radius) #type: ignore
+      return Leaf(indices, ref_point) #type: ignore
 
     else:
       cluster = two_means(dataset, indices, distance_metric, random_state)

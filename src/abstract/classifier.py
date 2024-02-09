@@ -11,9 +11,9 @@ import logging
 
 
 from .dominance_graph import DominanceGraph
-from .. dataset.dataset import Dataset
-from .. perturbation.adv_region import AdversarialRegion
-from .. space.partitioning import Partitions
+from ..dataset.dataset import Dataset
+from ..perturbation.adv_region import AdversarialRegion
+from ..space.partition_tree import Partitions
 
 logger = logging.getLogger(__name__)
 @dataclass
@@ -39,11 +39,11 @@ class AbstractClassifier:
 
     init_radius: float = 2*adv_region.epsilon*sqrt(adv_region.point.shape[0])
 
-    closer_points, dists = self.partition_tree.query_point(adv_region.point, init_radius, True)
+    closer_points, dists = self.partition_tree.query_point(adv_region.point, init_radius, max_k, True)
 
-    closer_points = closer_points[dists <= dists[6] + init_radius]
+    closer_points = closer_points[dists <= dists[max_k-1] + init_radius]
     if closer_points.num_points < max_k:
-      logger.error(f'Closer points not enough !!')
+      logger.error(f'Not enough closer points !!')
 
     logger.debug("\t closer points: ")
     logger.debug('%s\n', indent(pformat(closer_points.points, compact=True),'\t\t'))

@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any, NotRequired, Required, Self, TypedDict
 from numpy import vstack, hstack
 
-from typings.base_types import ArrayNxM, Integer, NDVector
+from src.utils.base_types import ArrayNxM, NDVector
 
 
 class DatasetParams(TypedDict, total=False):
@@ -20,7 +20,7 @@ class Dataset:
   labels: NDVector
   num_feature_start_ix: int
 
-  num_points: Integer = field(init=False)
+  num_points: int = field(init=False)
 
 
   def __post_init__(self: Self) -> None:

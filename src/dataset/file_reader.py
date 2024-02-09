@@ -1,10 +1,10 @@
-from typings.base_types import ArrayNxM, String
+from src.utils.base_types import ArrayNxM
 from os.path import exists
 from pandas import read_csv
 from numpy import hsplit
 from sklearn.datasets import load_svmlight_file
 
-def csv_reader(file_path: String) -> tuple[ArrayNxM, ArrayNxM]:
+def csv_reader(file_path: str) -> tuple[ArrayNxM, ArrayNxM]:
 
   if not exists(file_path):
     raise FileNotFoundError(f'No file found at: {file_path}')
@@ -20,7 +20,7 @@ def csv_reader(file_path: String) -> tuple[ArrayNxM, ArrayNxM]:
 
   return training_points, labels.reshape((-1,))
 
-def libsvm_reader(file_path: String) -> tuple[ArrayNxM, ArrayNxM]:
+def libsvm_reader(file_path: str) -> tuple[ArrayNxM, ArrayNxM]:
 
   if not exists(file_path):
     raise FileNotFoundError(f'No file found at: {file_path}')

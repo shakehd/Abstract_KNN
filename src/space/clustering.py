@@ -7,7 +7,7 @@ from sklearn.decomposition import PCA
 
 from src.space.hyperplane import Hyperplane
 from src.utils.priority_queue import PriorityItem, PriorityQueue
-from typings.base_types import ArrayNxM, NDVector
+from src.utils.base_types import ArrayNxM, NDVector
 
 @dataclass
 class Cluster:

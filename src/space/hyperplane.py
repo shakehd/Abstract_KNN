@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any, List, Self
 
 from sklearn.metrics import DistanceMetric
-from typings.base_types import NDVector, Real, String
+from src.utils.base_types import NDVector
 import numpy as np
 
 @dataclass(init=False)
@@ -32,7 +32,7 @@ class Hyperplane:
     def __call__(self:Self , point: NDVector, **kwds: Any) -> float:
         return np.dot(self.coefficients, point) - self.constant
 
-    def __str__(self: Self) -> String:
+    def __str__(self: Self) -> str:
         coefs_repr: List[str] = [f"{self.coefficients[i]} x_{i}"
                                  for i in range(0, self.coefficients.shape[0])]
         return ' + '.join(coefs_repr) + f" + {self.constant} = 0"

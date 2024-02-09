@@ -19,6 +19,7 @@ class PriorityItem:
     return self.real_priority() < __other.real_priority()
 
   def __eq__(self: Self, __other: object) -> bool:
+
     if not isinstance(__other, PriorityItem):
       return NotImplemented
 
@@ -48,7 +49,7 @@ class PriorityQueue:
       self.size = 0
 
 
-  def push(self: Self, val: int, priority: float, delta: list[float]) -> None:
+  def push(self: Self, val: int, priority: float, delta: list[float] = [0]) -> None:
     heapq.heappush(self._data, PriorityItem(val, priority, delta))
     self.size += 1
 
@@ -60,7 +61,7 @@ class PriorityQueue:
   def peek(self: Self) -> PriorityItem:
     return self._data[0]
 
-  def pushpop(self: Self, val: int, priority: float, delta: list[float]) -> PriorityItem:
+  def pushpop(self: Self, val: int, priority: float, delta: list[float] = [0]) -> PriorityItem:
     return heapq.heappushpop(self._data, PriorityItem(val, priority, delta))
 
   def incr_delta(self: Self, incr: float) -> None:

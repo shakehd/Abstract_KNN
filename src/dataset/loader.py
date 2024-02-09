@@ -6,7 +6,7 @@ from sklearn.compose import ColumnTransformer
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 
-from typings.base_types import  ArrayNxM
+from src.utils.base_types import  ArrayNxM
 from .file_reader import csv_reader, libsvm_reader
 from .dataset import Dataset, DatasetParams
 

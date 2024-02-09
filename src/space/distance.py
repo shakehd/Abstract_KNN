@@ -2,7 +2,7 @@ from enum import Enum, auto
 from math import isclose
 
 from sklearn.metrics import DistanceMetric
-from typings.base_types import Array1xM, NDVector
+from src.utils.base_types import Array1xM, NDVector
 import numpy as np
 
 class Closer(Enum):

@@ -11,16 +11,16 @@ import logging
 
 
 from sklearn.metrics import DistanceMetric
-from .. dataset.dataset import Dataset
-from .. perturbation.adv_region import AdversarialRegion
+from ..dataset.dataset import Dataset
+from ..perturbation.adv_region import AdversarialRegion
 from ..space.distance import Closer, which_is_closer
 
 
 logger = logging.getLogger(__name__)
 
-from typings.base_types import Integer, NDVector, Number, String
+from src.utils.base_types import NDVector
 
-Id = String
+Id = str
 
 @dataclass
 class Vertex:
@@ -135,10 +135,10 @@ class DominanceGraph:
                             max_path_length: int = 7) -> DominanceGraph:
 
 
-    dom_matrix: dict[String, Vertex] = dict(
+    dom_matrix: dict[Id, Vertex] = dict(
       [(str(i), Vertex(str(i), dataset.points[i],  dataset.labels[i])) for i in range(dataset.num_points)]
     )
-    initial_vertices: set[Integer] = set(range(dataset.num_points))
+    initial_vertices: set[int] = set(range(dataset.num_points))
 
     for i in range(dataset.num_points):
 
@@ -162,7 +162,7 @@ class DominanceGraph:
             dom_matrix[str(i)].edges.append(str(j))
             dom_matrix[str(j)].edges.append(str(i))
 
-    root_edges: list[String]= [str(i) for i in initial_vertices]
+    root_edges: list[Id]= [str(i) for i in initial_vertices]
     dom_matrix['root'] = Vertex('root', edges=root_edges)
 
     logger.debug("\t dominance graph: \n")
