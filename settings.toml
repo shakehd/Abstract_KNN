@@ -1,3 +1,5 @@
 [base_dirs]
 config = "./configs"
-dataset_dir = "./datasets"
+dataset = "./datasets"
+result = "./results"
+logs = "./logs"

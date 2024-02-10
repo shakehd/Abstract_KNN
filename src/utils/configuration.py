@@ -15,7 +15,7 @@ class Configuration:
     with open(config_file_path, mode="rb") as fp:
       self.settings = ChainMap(toml.load(fp))
 
-  def load_settings(self: Self, config_file_path: str) -> None:
+  def load_configuration(self: Self, config_file_path: str) -> None:
 
     with open(config_file_path, mode="rb") as fp:
       self.settings = self.settings.new_child(toml.load(fp))

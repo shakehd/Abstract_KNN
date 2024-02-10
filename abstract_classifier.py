@@ -25,24 +25,20 @@ def get_args_parser() -> argparse.ArgumentParser:
   parser.add_argument('config_filepath', metavar='CONFIGFILE',
                       help='name of the config file to read (it must be inside the config folder !!).')
   parser.add_argument('--random-state', metavar='RANDOM', type=int,
-                      help='random state used when partitioning the dataset.')
+                      help='random seed used when partitioning the dataset.')
   parser.add_argument('--partition-size', metavar='SIZE', type=int,
                       default=20,
                       help='maximum number of data points in a partition (default 20).')
   parser.add_argument('--log ', dest='log_level',
                       choices=['INFO', 'DEBUG', 'ERROR'],
-                      default='ERROR',
+                      default='ERROR',type = str.upper,
                       help='log level used during the verification phase (default ERROR).')
-  parser.add_argument('--results-dir', metavar='RESULTSDIR',
-                      default='./results',
-                      help='path to a directory where results will be saved (default ./results)')
 
   return parser
 
 
 def main(params: Configuration, partition_size: int = 20,
-         random_state: Optional[int] = None,
-         results_dir: str = './results') -> None:
+         random_state: Optional[int] = None) -> None:
 
   k_values = params['knn_params']['k_values']
 
@@ -51,7 +47,7 @@ def main(params: Configuration, partition_size: int = 20,
 
   loader = DataLoader(params['dataset'])
 
-  training_set, test_set = loader.load_datasets(params['base_dirs']['dataset_dir'])
+  training_set, test_set = loader.load_datasets(params['base_dirs']['dataset'])
 
   distance_metric: DistanceMetric = DistanceMetric.get_metric(params['knn_params']['distance_metric'])
   abstract_classifier: AbstractClassifier = AbstractClassifier(distance_metric)
@@ -130,6 +126,7 @@ def main(params: Configuration, partition_size: int = 20,
   overall_results.append(['runtime (process time)', f'{time.strftime("%H:%M:%S", time.gmtime(elapsed_process))}']+\
                           ['']*(len(k_values)-1))
 
+  results_dir = params['base_dirs']['result']
   with open(join(results_dir, 'classification.csv'), 'w', newline='', encoding='utf-8') as classification_file,\
        open(join(results_dir, 'robustness.csv'), 'w', newline='', encoding='utf-8') as robustness_file,\
        open(join(results_dir, 'stability.csv'), 'w', newline='', encoding='utf-8') as stability_file,\
@@ -164,19 +161,22 @@ if __name__ == "__main__":
 
     params = Configuration()
 
-    logging.basicConfig(filename='logs.log', filemode="w", level=args.log_level.upper(),
-                        format="%(message)s")
+    if not exists(params['base_dirs']['logs']):
+      mkdir(params['base_dirs']['logs'])
+
+    logging.basicConfig(filename=join(params['base_dirs']['logs'], 'logs.log'),
+                        filemode="w", level=args.log_level.upper(), format="%(message)s")
 
     input_file_path = join(params['base_dirs']['config'], f'{args.config_filepath}.toml')
     if not exists(input_file_path):
       raise ValueError(f"Input file {input_file_path} not found:")
 
-    params.load_settings(input_file_path)
+    params.load_configuration(input_file_path)
 
-    if not exists(args.results_dir):
-      mkdir(args.results_dir)
+    if not exists(params['base_dirs']['result']):
+      mkdir(params['base_dirs']['result'])
 
-    main(params, args.partition_size, args.random_state, args.results_dir)
+    main(params, args.partition_size, args.random_state)
 
   except Exception:
     logger.exception('An error occurred: ')
