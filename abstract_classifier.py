@@ -56,7 +56,7 @@ def main(params: Configuration, partition_size: int = 20,
   progress_bar = tqdm(
       zip(test_set.points, test_set.labels),
       total=test_set.num_points,
-      bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}{postfix}]',
+      bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining} {rate_inv_fmt} {postfix}]',
       desc='Verifying'
   )
 
@@ -109,7 +109,7 @@ def main(params: Configuration, partition_size: int = 20,
           round(sum(stable_count) / (classified_points * len(k_values)) * 100, 1)
     ))
 
-  logger.info(f"-- Finished verifying point {classified_points} --\n")
+    # logger.info(f"-- Finished verifying point {classified_points} --\n")
 
   elapsed_clock: float = time.time() - clock_st
   elapsed_process: float = time.process_time() - process_st
@@ -126,7 +126,7 @@ def main(params: Configuration, partition_size: int = 20,
   overall_results.append(['runtime (process time)', f'{time.strftime("%H:%M:%S", time.gmtime(elapsed_process))}']+\
                           ['']*(len(k_values)-1))
 
-  results_dir = params['base_dirs']['result']
+  results_dir = join(params['base_dirs']['result'], args.config_filepath)
   with open(join(results_dir, 'classification.csv'), 'w', newline='', encoding='utf-8') as classification_file,\
        open(join(results_dir, 'robustness.csv'), 'w', newline='', encoding='utf-8') as robustness_file,\
        open(join(results_dir, 'stability.csv'), 'w', newline='', encoding='utf-8') as stability_file,\
@@ -164,7 +164,12 @@ if __name__ == "__main__":
     if not exists(params['base_dirs']['logs']):
       mkdir(params['base_dirs']['logs'])
 
-    logging.basicConfig(filename=join(params['base_dirs']['logs'], 'logs.log'),
+    log_dir= join(params['base_dirs']['logs'], args.config_filepath)
+
+    if not exists(log_dir):
+      mkdir(log_dir)
+
+    logging.basicConfig(filename=join(log_dir, 'logs.log'),
                         filemode="w", level=args.log_level.upper(), format="%(message)s")
 
     input_file_path = join(params['base_dirs']['config'], f'{args.config_filepath}.toml')
@@ -172,9 +177,9 @@ if __name__ == "__main__":
       raise ValueError(f"Input file {input_file_path} not found:")
 
     params.load_configuration(input_file_path)
-
-    if not exists(params['base_dirs']['result']):
-      mkdir(params['base_dirs']['result'])
+    result_dir = join(params['base_dirs']['result'], args.config_filepath)
+    if not exists(result_dir):
+      mkdir(result_dir)
 
     main(params, args.partition_size, args.random_state)
 

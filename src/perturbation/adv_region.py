@@ -4,7 +4,7 @@ from nptyping import Float
 import numpy as np
 from sklearn.metrics import DistanceMetric
 from ..abstract.domain.interval import Interval
-from ..space.distance import Closer, get_closer_with_l1, which_is_closer
+from ..space.distance import Closer, get_closer_manhattan, which_is_closer
 
 from src.utils.base_types import NDVector
 
@@ -47,8 +47,8 @@ class AdversarialRegion:
         return closer
 
     elif 'Manhattan' in type(distance_metric).__name__:
-          return get_closer_with_l1(self.point, fst_point, snd_point,
-                                    2*self.epsilon*np.sqrt(self.point.shape[0]),
+          return get_closer_manhattan(self.point, fst_point, snd_point,
+                                    2*self.epsilon*self.point.shape[0],
                                     self.epsilon, distance_metric,
                                     self.epsilon*self.point.shape[0])
 

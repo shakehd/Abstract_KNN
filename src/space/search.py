@@ -6,7 +6,7 @@ from sklearn.metrics import DistanceMetric
 
 from ..utils.tree import Ball, Leaf, Node
 from src.utils.base_types import NDVector
-from src.space.distance import Closer, get_closer_with_l1, which_is_closer
+from src.space.distance import Closer, get_closer_manhattan, which_is_closer
 
 def query_point(tree: Node | Leaf, point: NDVector, distance: DistanceMetric) -> list[Leaf]:
 
@@ -80,7 +80,7 @@ def get_closer_from_ball(ball: Ball, node: Node, distance_metric: DistanceMetric
 
   elif 'Manhattan' in type(distance_metric).__name__:
 
-    match get_closer_with_l1(ball.center, node.left_child.ref_point,
+    match get_closer_manhattan(ball.center, node.left_child.ref_point,
                              node.left_child.ref_point, 2*ball.radius,
                              ball.radius, distance_metric, ball.radius):
 

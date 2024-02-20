@@ -25,9 +25,7 @@ def which_is_closer(target_point: NDVector, fst_point: NDVector,
     else:
       return Closer.FIRST
 
-
-#  TO do: cֻ'é un bug !!
-def get_closer_with_l1(target_point: NDVector, fst_point: NDVector,
+def get_closer_manhattan(target_point: NDVector, fst_point: NDVector,
                   snd_point: NDVector,
                   max_distance_delta: float,
                   delta: float,
@@ -71,8 +69,8 @@ def get_closer_with_l1(target_point: NDVector, fst_point: NDVector,
           elif further_point[ix] <=target_point[ix] <= closer_point[ix]:
             diff += target_point[ix] - max(further_point[ix],target_point[ix] - delta)
 
-          elif further_point[ix] <=target_point[ix] <= closer_point[ix]:
-            diff += max(0, min(further_point[ix],target_point[ix] - delta) - closer_point[ix])
+          elif target_point[ix] <= closer_point[ix] <= further_point[ix]:
+            diff += max(0, min(further_point[ix],target_point[ix] + delta) - closer_point[ix])
 
           diff = np.min([diff, max_constraint])
 
