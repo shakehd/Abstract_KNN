@@ -1,6 +1,6 @@
 [knn_params]
 k_values = [1, 2, 3, 5, 7]
-distance_metric = "euclidean"
+distance_metric = "manhattan"
 
 [dataset]
 format = "libsvm"

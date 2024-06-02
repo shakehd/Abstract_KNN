@@ -1,4 +1,4 @@
-# Robustness Verification of *k*-Nearest Neighbors
+# Robustness Verification of *k*-Nearest neighbours
 
 Implementation of an abstract interpretation-based tool for proving robustness and stability properties of *k*NN classifiers.
 
@@ -98,7 +98,7 @@ epsilon = epsilon value
 It has three section:
 
 - `knn_params`:
-  - `k_values`: list of possible values for the number of nearest neighbors to consider for each prediction.
+  - `k_values`: list of possible values for the number of nearest neighbours to consider for each prediction.
   - `distance_metric`: The metric used to measure the distance between data points
 
 - `dataset`:

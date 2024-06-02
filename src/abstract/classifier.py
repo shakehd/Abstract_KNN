@@ -1,5 +1,4 @@
 
-from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from typing import Optional, Self
 from numpy import sqrt
@@ -7,8 +6,6 @@ from sklearn.metrics import DistanceMetric
 from pprint import pformat
 from textwrap import indent
 import logging
-
-
 
 from .dominance_graph import DominanceGraph
 from ..dataset.dataset import Dataset
@@ -49,6 +46,6 @@ class AbstractClassifier:
     logger.debug('%s\n', indent(pformat(closer_points.points, compact=True),'\t\t'))
 
     dominance_graph: DominanceGraph = DominanceGraph.build_dominance_graph(adv_region, closer_points, self.distance_metric)
-    possible_classifications = dominance_graph.get_neighbors_label(k_vals)
+    possible_classifications = dominance_graph.get_neighbours_label(k_vals)
 
     return {k:classifications for k, classifications in possible_classifications.items() if k in k_vals}

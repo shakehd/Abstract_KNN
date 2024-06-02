@@ -4,8 +4,8 @@ distance_metric = "euclidean"
 
 [dataset]
 format = "libsvm"
-training_set = "fourclass"
-test_set = "fourclass.t"
+training_set = "letter.scale"
+test_set = "letter.scale.t"
 
 [abstraction]
 epsilon = 0.01

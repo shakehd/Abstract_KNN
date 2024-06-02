@@ -1,9 +1,6 @@
-from collections import defaultdict
 import csv
-from dataclasses import dataclass
 from typing import Optional
 from sklearn.metrics import DistanceMetric
-from sys import argv
 from os.path import exists, join
 from os import mkdir
 from tqdm import tqdm
@@ -71,6 +68,7 @@ def main(params: Configuration, partition_size: int = 20,
   process_st: float = time.process_time()
 
   for (test_point, test_label) in progress_bar:
+
     logger.info("-- Classifying point %s %s with label %s --\n", classified_points + 1 , test_point, test_label)
     adv_region = AdversarialRegion(test_point, epsilon, test_set.num_feature_start_ix)
 
