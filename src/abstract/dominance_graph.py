@@ -1,25 +1,27 @@
 from __future__ import annotations
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from typing import  Any, Iterable, Optional, Self, Type
+from enum import Enum, auto
+from heapq import heapify, heappop, heappush
+from typing import Optional, Self, Type
 from  pprint import pformat
 from textwrap import indent
 import logging
-from copy import deepcopy
-from itertools import combinations, product, groupby
-from functools import cached_property, reduce
-from sklearn.metrics import DistanceMetric
+from itertools import repeat
+
+from ..perturbation.perturbation import AdvRegion
+from ..space.hyperplane import Hyperplane
+from ..space.polyhedron import Polyhedron
 
 from ..dataset.dataset import Dataset
-from ..perturbation.adv_region import AdversarialRegion
 from ..space.distance import Closer
-
 
 logger = logging.getLogger(__name__)
 
-from src.utils.base_types import NDVector
+from src.utils.base_types import  Array1xN, NDVector
 
 VertexId = str
+Label = int
 
 @dataclass
 class Vertex:
@@ -27,237 +29,577 @@ class Vertex:
   point: Optional[NDVector] = field(default=None)
   label: int = field(default=-1)
   closer_vertices: set[VertexId] = field(default_factory=set)
+  equidistant_vertices: set[VertexId] = field(default_factory=set)
   edges: list[VertexId] = field(default_factory=list)
+
+@dataclass(order=True)
+class PrioritizedItem:
+    priority: tuple[int, int]
+    item: ConcretePath=field(compare=False)
+
+class Safe_Vertex_Error(Enum):
+  MISSING_ANCESTOR = auto()
+  CIRCULAR_PATH    = auto()
+  UNSATISFIED_LP   = auto()
+  NONE             = auto()
+
 @dataclass
-class AbstractVertex:
-  id: str
-  setv: frozenset[VertexId] = field(default_factory=frozenset)
-  reqv: frozenset[VertexId] = field(default_factory=frozenset)
-  predv: frozenset[VertexId] = field(default_factory=frozenset)
-  len: int = field(default_factory=int)
-  repr: str = field(default_factory=str)
-  initialized: bool = field(init=False, default=False)
-  sorted_setv: list[VertexId] = field(init=False, default_factory=list)
+class ConcretePath:
+  vertices: list[VertexId] = field(default_factory=list)
+  polyhedron: Polyhedron = field(default_factory=Polyhedron.dummyPolyhedron)
+  label_counter: Counter[int] = field(default_factory=Counter)
 
-  def __post_init__(self: Self) -> None:
-    self.initialized = True
-    self.sorted_setv = sorted(self.setv)
-    self.repr = self._encode()
+  @property
+  def last(self: Self) -> VertexId:
+    return self.vertices[-1]
 
-  def __setattr__(self, prop: Any, val: Any):
-    super().__setattr__(prop, val)
-    if self.initialized  and prop in ["reqv", "len"]:
-        self.repr = self._encode()
+  @property
+  def most_common_label(self: Self) -> tuple[int, int]:
+    return self.label_counter.most_common(1)[0]
 
-  def labels(self: Self, graph: DominanceGraph) -> list[Counter[int]]:
-    label_bags: list[Counter[int]] = []
+  def len(self: Self) -> int:
+    return len(self.vertices)
 
-    req_labels = Counter([graph[v].label for v in self.reqv])
-    remaining_vertices = self.setv - self.reqv
+  def is_safe(self: Self, vertex: Vertex,
+              bisectors: dict[tuple[VertexId, VertexId], Hyperplane],
+              dom_graph : DominanceGraph) -> tuple[Safe_Vertex_Error, None | Polyhedron]:
 
-    if len(remaining_vertices) == 0:
-      return  [req_labels]
+    def build_new_polyhedrons() -> Polyhedron:
+      not_ancestor = set(self.vertices) - vertex.closer_vertices
 
-    remaining_labels = [graph[v].label for v in remaining_vertices]
-    for labels in combinations(remaining_labels, self.len - len(self.reqv)):
-      label_bags.append(req_labels + Counter(labels))
+      inequalities_lhs: list[Array1xN] = []
+      inequalities_rhs: list[float] = []
 
-    return label_bags
+      equidistant_vertices: set[VertexId] = \
+            vertex.equidistant_vertices - set(self.vertices)
 
-  def _encode(self: Self) -> str:
-    return  (
-      "{" +
-      ",".join([id if id not in self.reqv else f'[{id}]' for id in self.sorted_setv]) +
-      "}-" + str(self.len)
+      equidistant_vertices = set(
+        [v_id for v_id in equidistant_vertices
+         if len(dom_graph[v_id].closer_vertices) <= self.len()
+        ]
+      )
+
+      if not not_ancestor and not equidistant_vertices:
+        return self.polyhedron.copy()
+
+      if equidistant_vertices:
+        for v in equidistant_vertices:
+          if (vertex.id, v) in bisectors:
+            bisector = bisectors[(vertex.id, v)]
+            inequalities_lhs.append(bisector.coefficients)
+            inequalities_rhs.append(bisector.constant)
+          else:
+            bisector = bisectors[(v, vertex.id)]
+            inequalities_lhs.append(-bisector.coefficients)
+            inequalities_rhs.append(-bisector.constant)
+
+      if not_ancestor:
+        for v in not_ancestor:
+          if (v, vertex.id) in bisectors:
+            bisector = bisectors[(v, vertex.id)]
+            inequalities_lhs.append(bisector.coefficients)
+            inequalities_rhs.append(bisector.constant)
+          else:
+            bisector = bisectors[(vertex.id, v)]
+            inequalities_lhs.append(-bisector.coefficients)
+            inequalities_rhs.append(-bisector.constant)
+
+      return self.polyhedron.refine(inequalities_lhs, inequalities_rhs) # type: ignore
+
+    missing_ancestor: bool = bool(vertex.closer_vertices) and \
+                                  (not vertex.closer_vertices <= set(self.vertices))
+    circular_path: bool = vertex.id in self.vertices
+
+    if missing_ancestor:
+      return Safe_Vertex_Error.MISSING_ANCESTOR, None
+
+    if circular_path:
+      return Safe_Vertex_Error.CIRCULAR_PATH, None
+
+    new_polyhedron = build_new_polyhedrons()
+
+    if not new_polyhedron.is_valid():
+      return Safe_Vertex_Error.UNSATISFIED_LP, None
+
+    return Safe_Vertex_Error.NONE, new_polyhedron
+
+  def add_vertex(self: Self, vertex: Vertex,
+                  bisectors: dict[tuple[VertexId, VertexId], Hyperplane],
+                  dom_graph : DominanceGraph)  -> Safe_Vertex_Error | ConcretePath:
+
+    safe_error, polyhedron = self.is_safe(vertex, bisectors, dom_graph)
+
+    if safe_error != Safe_Vertex_Error.NONE:
+      return safe_error
+
+    assert polyhedron is not None
+    return ConcretePath(
+      self.vertices + [vertex.id],
+      polyhedron,
+      self.label_counter + Counter([vertex.label])
     )
 
-  def __str__(self) -> str:
-    return self.repr
+  def __len__(self: Self) -> int:
+    return len(self.vertices)
 
-@dataclass(eq=False)
-class AbstractPath:
-  abs_vertices: dict[str, AbstractVertex] = field(default_factory=dict)
-  length: int = field(default_factory=int)
+  def __eq__(self: Self, other: object) -> bool:
 
-  @cached_property
-  def setp(self: Self) -> set[VertexId]:
-    return reduce(frozenset.union, [av.setv for av in self.abs_vertices.values()], # type: ignore
-                   frozenset()) # type: ignore
-
-  def is_safe(self: Self, abs_vertex: AbstractVertex) -> bool:
-
-    if abs_vertex.id in self.abs_vertices:
-      existing_vertex = self.abs_vertices[abs_vertex.id]
-      return abs_vertex.len + existing_vertex.len <= len(existing_vertex.setv)
-
-    if not abs_vertex.predv <= self.setp:
+    if not isinstance(other, ConcretePath):
       return False
 
-    for a_vertex in self.abs_vertices.values():
-      if len((abs_vertex.predv | a_vertex.reqv) & a_vertex.setv) > a_vertex.len:
-        return False
+    return self.vertices == other.vertices
 
-    return True
+  def __str__(self) -> str:
+    return '[' + ', '.join(self.vertices) + ']'
 
-  def extend(self: Self, abs_vertex: AbstractVertex) -> AbstractPath:
-    new_abs_vertices = deepcopy(self.abs_vertices)
-    # new_abs_vertices: dict[str, AbstractVertex] = {}
-
-    if abs_vertex.id in new_abs_vertices:
-      new_abs_vertices[abs_vertex.id].len += abs_vertex.len
-    else:
-      for id in new_abs_vertices:
-        new_abs_vertices[id].reqv |=  (abs_vertex.predv & new_abs_vertices[id].setv)
-
-      new_abs_vertices[abs_vertex.id] = abs_vertex
-
-    return AbstractPath(
-      new_abs_vertices,
-      length = self.length + abs_vertex.len
-    )
-
-  def labels_star(self: Self, graph: DominanceGraph) -> list[Counter[int]]:
-    label_bags: list[Counter[int]] = []
-
-    for counters in product(*[av.labels(graph) for av in self.abs_vertices.values()]):
-      empty: Counter[int] = Counter()
-      label_bags.append(sum(counters, empty))
-
-    return label_bags
-
-  def __eq__(self, other: object) -> bool:
-
-    if isinstance(other, AbstractPath):
-      return self.repr == other.repr
-
-    return False
-
-  @cached_property
-  def repr(self: Self) -> set[str]:
-    return set([str(av) for av in self.abs_vertices.values()])
-
-  def __repr__(self: Self) -> str:
-    return ", ".join([str(av) for av in self.abs_vertices.values()])
 
   @classmethod
-  def emptyPath(cls:  type[AbstractPath]) -> AbstractPath:
+  def emptyPath(cls:  type[ConcretePath]) -> ConcretePath:
     return cls()
+  @classmethod
+  def singlePath(cls:  type[ConcretePath], vertexId: VertexId) -> ConcretePath:
+    return cls([vertexId])
+
+  @classmethod
+  def check_path(cls: type[ConcretePath],
+                 init_path: ConcretePath,
+                 vertices: list[VertexId],
+                 bisectors: dict[tuple[VertexId, VertexId], Hyperplane],
+                 dom_graph : DominanceGraph,
+) -> list[bool]:
+
+    curr_path: ConcretePath = init_path
+    valid_lengths = list(repeat(False, len(vertices)))
+    for ix, vx in enumerate(vertices):
+      res = curr_path.add_vertex(dom_graph[vx], bisectors, dom_graph)
+
+      if isinstance(res, ConcretePath):
+        valid_lengths[ix] = True
+        curr_path = res
+      else:
+        break
+
+    return valid_lengths
 
 @dataclass
 class DominanceGraph:
   vertices: dict[VertexId, Vertex]
 
+  bisectors: dict[tuple[VertexId, VertexId], Hyperplane]
+
   def __getitem__(self: Self, key: VertexId) -> Vertex:
     return self.vertices[key]
 
-  def get_neighbours_label(self: Self, k_vals: list[int]) -> dict[int, set[int]]:
+  def _get_label_occurrences(self: Self, max_k_value: int) -> dict[int, list[Vertex]]:
 
-    def build_abs_vertices(min_length: int, vertices: Iterable[Vertex]) -> list[AbstractVertex]:
+    labels_vertices: defaultdict[int, list[Vertex]] = defaultdict(list)
 
-      abs_vertices: list[AbstractVertex] = []
-      underlying_sets: defaultdict[str, list[Vertex]] = defaultdict(list)
+    label_count: Counter[int] = Counter([
+      v.label for v in self.vertices.values()
+        if len(v.closer_vertices) < max_k_value  and v.id != 'root'
+    ])
 
-      for vertex in vertices:
-        abs_vertex_id = f'{min_length}-{hash(frozenset(vertex.closer_vertices))}'
-        underlying_sets[abs_vertex_id].append(vertex)
+    for vx in filter(lambda v: v.id != 'root', self.vertices.values()):
 
-      for id, u_set in  underlying_sets.items():
-        abs_vertices.append(
-          AbstractVertex(
-            id=id,
-            setv=frozenset(sorted([v.id for v in u_set])),
-            reqv=frozenset(),
-            predv=frozenset(u_set[0].closer_vertices),
-            len=1
+      lb_count = Counter([self[v].label for v in  vx.closer_vertices])
+      another_label_majority = False
+      if len(lb_count) > 0:
+        most_common = lb_count.most_common(1)[0]
+        another_label_majority = most_common[1] >= max_k_value//2 +1
+
+      if another_label_majority:
+        continue
+
+      if label_count[vx.label] >= (len(vx.closer_vertices) + 1)//2:
+        labels_vertices[vx.label].append(vx)
+
+    return labels_vertices
+
+  def get_neighbors_label(self: Self, k_vals: list[int], numPoint: int) -> dict[int, set[int]]:
+
+    def calculate_max_path_length(vertices: list[Vertex], max_length: int,
+                                  labels_count: dict[int, list[Vertex]] ) -> int:
+
+      current_path: set[VertexId] = set()
+      vertex_added: int = 0
+
+      for vx in [v for v in vertices if v.id not in current_path]:
+
+        if not current_path >= vx.closer_vertices:
+          current_path |= vx.closer_vertices
+
+        if len(current_path) >= max_length:
+          break
+
+        current_path.add(vx.id)
+        vertex_added += 1
+
+      return min(sum([
+              min(vertex_added, len(vxs)) for vxs in labels_count.values()
+            ]), max_length)
+
+    def extend_path(path: ConcretePath, vertex: Vertex,
+                    queue: list[PrioritizedItem],
+                    distinct_paths: defaultdict[int, set[tuple[VertexId,...]]],
+                    len_priority: int = 1) -> bool:
+
+      path_length: int = len(path)
+      if tuple(path.vertices + [vertex.id]) not in distinct_paths[path_length+1]:
+
+        result = path.add_vertex(vertex, self.bisectors, self)
+
+        if isinstance(result, ConcretePath):
+          item: PrioritizedItem = PrioritizedItem(
+            (-result.label_counter[label], len_priority*result.len()),
+            result
           )
-        )
+          heappush(queue, item)
+          current_distinct_paths[path_length+1].add(tuple(result.vertices))
+          return True
 
-      return abs_vertices
+        if result == Safe_Vertex_Error.MISSING_ANCESTOR:
+          for ancestor in vertex.closer_vertices - set(path.vertices):
+            extend_path(path, self[ancestor], queue, distinct_paths, len_priority)
+          return True
 
-    def get_possible_classifications(abs_paths: list[AbstractPath], graph: DominanceGraph) -> set[int]:
-      classifications: set[int] = set()
+      return False
 
-      for abs_path in abs_paths:
-        for label_counter in abs_path.labels_star(graph):
+    def skip_vertex(path: ConcretePath, vertex: Vertex, label_count: int,
+                    max_path_length: int) -> bool:
 
-          max_freq: int = label_counter.most_common(1)[0][1]
-          most_freq_labels: list[int] = [label for label,v in label_counter.items() if v == max_freq]
+      potential_path = set(path.vertices) | vertex.closer_vertices
 
-          classifications.update(most_freq_labels)
+      if len(potential_path) >= max_path_length:
+        return True
+
+      lb_count = Counter([self[v].label for v in potential_path])
+      lb_count.update([vertex.label])
+      most_common = lb_count.most_common(1)[0]
+
+      insufficient_vertex: bool  = most_common[1] - lb_count[label] > \
+                            label_count - lb_count[label]
+
+      insufficient_length = most_common[1] - lb_count[label] >\
+                            max_path_length - (len(potential_path)+1)
+
+
+      if insufficient_vertex or insufficient_length:
+        return True
+
+      return False
+
+    def get_initial_paths(label_vertices: list[Vertex],
+                          labels_vertices: dict[int, list[Vertex]],
+                          k_classified_with: dict[int, list[bool]],
+                          classifications: dict[int, set[int]],
+                          current_distinct_paths: defaultdict[int, set[tuple[VertexId,...]]],
+                          max_k: int) -> list[ConcretePath]:
+
+      init_paths: list[ConcretePath] = []
+
+      priority_queue: list[PrioritizedItem] = []
+      heappush(priority_queue, PrioritizedItem((0, 0), ConcretePath.emptyPath()))
+
+      label_count = len(label_vertices)
+      max_path_length = calculate_max_path_length(label_vertices, max_k, labels_vertices)
+      min_path_length = min([len(v.closer_vertices) for v in label_vertices])
+
+      k_classified_with[label][:min_path_length] = list(repeat(True, min_path_length))
+      for ix in [i for i in range(max_k) if i+1 not in k_vals]:
+        k_classified_with[label][ix] = True
+
+      while len(priority_queue):
+
+        path: ConcretePath = heappop(priority_queue).item
+        path_length: int = len(path)
+
+        if all(k_classified_with[label][path_length-1:]):
+          continue
+
+        if path_length >= max_k//2 + 1:
+          most_commons = path.label_counter.most_common(2)
+
+          if len(most_commons) == 1 or \
+            most_commons[0][1] - most_commons[1][1] > max_k - path_length:
+
+            for k in range(path_length, max_k+1):
+
+              if k in k_vals:
+                classifications[k].add(most_commons[0][0])
+                k_classified_with[most_commons[0][0]][k-1] = True
+
+            if most_commons[0][0] == label:
+              k_with_missing_label: list[int] = [ix for ix, val in enumerate(k_classified_with[label])
+                                                    if not val]
+              max_path_length = 0 if not k_with_missing_label else k_with_missing_label[0] + 1
+              priority_queue = [item for item in priority_queue
+                                      if abs(item.priority[1]) < max_path_length]
+              heapify(priority_queue)
+
+            continue
+
+        if path_length > 0:
+          max_freq: int = path.label_counter.most_common(1)[0][1] # type: ignore
+          most_freq_labels: list[int] = [k for k,c in path.label_counter.items()\
+                                          if c == max_freq]
+          if path_length in k_vals:
+            classifications[path_length] |= set(most_freq_labels)
+
+          if label in most_freq_labels:
+            k_classified_with[label][path_length-1] = True
+
+            if path_length == max_path_length:
+              k_with_missing_label: list[int] = [ix for ix, val in enumerate(k_classified_with[label])
+                                                    if not val]
+              max_path_length = 0 if not k_with_missing_label else k_with_missing_label[0] + 1
+              priority_queue = [item for item in priority_queue
+                                      if abs(item.priority[1]) < max_path_length]
+              heapify(priority_queue)
+
+          if all(k_classified_with[label][:max_path_length]):
+            break
+
+        continue_search: bool = False
+        if path_length < max_path_length:
+
+          for vertex in filter(lambda v: v.id not in path.vertices, label_vertices):
+
+            if not skip_vertex(path, vertex, label_count, max_path_length):
+              continue_search |= extend_path(path, vertex, priority_queue,
+                                             current_distinct_paths, -1)
+
+        if not continue_search and 0 < path_length < max_path_length\
+           and path.most_common_label[1] <= path.label_counter[label]\
+           and path not in init_paths:
+
+            init_paths.append(path)
+
+      return init_paths
+
+    max_k: int = max(k_vals)
+    classifications: dict[int, set[int]] = defaultdict(set)
+
+    labels_vertices: dict[int, list[Vertex]] = self._get_label_occurrences(max_k)
+
+    if len(labels_vertices) == 1:
+
+      for k in k_vals:
+        classifications[k].add(self.vertices['0'].label)
 
       return classifications
 
-    def extend_abs_paths(abs_paths: list[AbstractPath],
-                         abs_vertices: list[AbstractVertex])  -> list[AbstractPath]:
+    vertices: list[Vertex] = [
+      v for id,v in self.vertices.items() if id != 'root' and
+                                             len(v.closer_vertices) < max_k
+    ]
 
-      new_paths: list[AbstractPath] = []
-      for abs_vertex in abs_vertices:
-        for abs_path in abs_paths:
+    vertices = sorted(vertices, key=lambda val: len(val.closer_vertices))
 
-          if abs_path.is_safe(abs_vertex):
-            new_path = abs_path.extend(abs_vertex)
+    k_classified_with: dict[int, list[bool]] = dict([
+      (label, list(repeat(False, max_k))) for label in labels_vertices.keys()
+    ])
 
-            if new_path not in new_paths:
-              new_paths.append(new_path)
+    for label_vertices in labels_vertices.values():
+      label:int = label_vertices[0].label
+      current_distinct_paths: defaultdict[int, set[tuple[VertexId,...]]] = defaultdict(set)
 
-      return new_paths
+      priority_queue: list[PrioritizedItem] = []
+      heappush(priority_queue, PrioritizedItem((0, 0), ConcretePath.emptyPath()))
 
-    max_k = max(k_vals)
+      label_count = len(label_vertices)
+      max_path_length = calculate_max_path_length(label_vertices, max_k, labels_vertices)
 
-    abs_paths: defaultdict[int, list[AbstractPath]] = defaultdict(list)
-    abs_paths[0] = [AbstractPath.emptyPath()]
-    abs_vertices: list[AbstractVertex] = []
+      init_paths = get_initial_paths(label_vertices, labels_vertices,
+                                     k_classified_with, classifications,
+                                      current_distinct_paths, max_k)
 
-    result:  dict[int, set[int]] = defaultdict(set)
+      if all(k_classified_with[label]):
+        continue
 
-    graph_vertices: list[Vertex] = [v for id,v in self.vertices.items() if id != 'root' ]
-    graph_vertices = sorted(graph_vertices, key=lambda val: len(val.closer_vertices))
-    graph_vertices = [v for v in graph_vertices if len(v.closer_vertices) < max_k]
+      for init_path in init_paths:
+        possible_vertices: list[Vertex] = list(filter(
+          lambda v: v.id not in init_path.vertices and not skip_vertex(init_path, v, label_count, max_path_length),
+          vertices))
 
-    k: int = 1
-    for min_length, vertices in groupby(graph_vertices, lambda val: len(val.closer_vertices)):
+        possible_labels: set[Label] = set([v.label for v in possible_vertices])
+        max_path_length = min(sum([
+              min(init_path.label_counter[label], len(label_vertices))
+                                                   for label in possible_labels
+            ]), max_k)
 
-      if k > max_k:
-        break
+        priority_queue: list[PrioritizedItem] = []
+        heappush(
+          priority_queue,
+          PrioritizedItem((-init_path.label_counter[label], -len(init_path)), init_path)
+        )
 
-      while k-1 < min_length :
-        abs_paths[k] = extend_abs_paths(abs_paths[k-1], abs_vertices)
-        result[k] = get_possible_classifications(abs_paths[k], self)
-        k += 1
+        while len(priority_queue):
 
-      abs_vertices.extend(build_abs_vertices(min_length, vertices))
+          path: ConcretePath = heappop(priority_queue).item
+          path_length: int = len(path)
 
-      abs_paths[k] = extend_abs_paths(abs_paths[k-1], abs_vertices)
-      result[k] = get_possible_classifications(abs_paths[k], self)
-      k += 1
 
-    while k-1 <= max_k:
-      abs_paths[k]= extend_abs_paths(abs_paths[k-1], abs_vertices)
-      result[k] = get_possible_classifications(abs_paths[k], self)
-      k += 1
+          if not k_classified_with[label][path_length-1]:
 
-    return result
+            if path_length >= max_k//2 + 1:
+              most_commons = path.label_counter.most_common(2)
+
+              if len(most_commons) == 1 or \
+                most_commons[0][1] - most_commons[1][1] > max_k - path_length:
+
+                for k in range(path_length, max_k+1):
+
+                  if k in k_vals:
+                    classifications[k].add(most_commons[0][0])
+                    k_classified_with[most_commons[0][0]][k-1] = True
+
+                if most_commons[0][0] == label:
+                  k_with_missing_label: list[int] = [ix for ix, val in enumerate(k_classified_with[label])
+                                                        if not val]
+                  max_path_length = 0 if not k_with_missing_label else k_with_missing_label[0] + 1
+                  priority_queue = [item for item in priority_queue
+                                          if abs(item.priority[1]) < max_path_length]
+                  heapify(priority_queue)
+
+                continue
+
+
+            max_freq: int = path.label_counter.most_common(1)[0][1] # type: ignore
+            most_freq_labels: list[int] = [k for k,c in path.label_counter.items()\
+                                            if c == max_freq]
+            if path_length in k_vals:
+              classifications[path_length] |= set(most_freq_labels)
+
+            if label in most_freq_labels:
+              k_classified_with[label][path_length-1] = True
+
+              if path_length == max_path_length:
+                k_with_missing_label: list[int] = [ix for ix, val in enumerate(k_classified_with[label])
+                                                      if not val]
+                max_path_length = 0 if not k_with_missing_label else k_with_missing_label[0] + 1
+                priority_queue = [item for item in priority_queue
+                                        if abs(item.priority[1]) < max_path_length]
+                heapify(priority_queue)
+
+          if all(k_classified_with[label][:max_path_length]):
+            break
+
+
+          if path.most_common_label[1] <= path.label_counter[label]\
+           and not all(k_classified_with[label][path_length-1:]):
+            for adj in possible_vertices:
+              if path.label_counter[label] >= path.label_counter[adj.label] + 1:
+                extend_path(path, adj, priority_queue,current_distinct_paths, -1)
+
+
+      # while len(priority_queue):
+
+      #   path: ConcretePath = heappop(priority_queue).item
+      #   # print(f'curr path: {path}', end='\r', flush=True)
+      #   path_length: int = len(path)
+
+      #   if all(k_classified_with[label][path_length-1:]):
+      #     continue
+
+      #   if not k_classified_with[label][path_length-1]:
+
+      #     if path_length >= max_k//2 + 1:
+      #       most_commons = path.label_counter.most_common(2)
+
+      #       if len(most_commons) == 1 or \
+      #         most_commons[0][1] - most_commons[1][1] > max_k - path_length:
+
+      #         for k in range(path_length, max_k+1):
+
+      #           if k in k_vals:
+      #             classifications[k].add(most_commons[0][0])
+      #             k_classified_with[most_commons[0][0]][k-1] = True
+
+      #         if most_commons[0][0] == label:
+      #           k_with_missing_label: list[int] = [ix for ix, val in enumerate(k_classified_with[label])
+      #                                                 if not val]
+      #           max_path_length = 0 if not k_with_missing_label else k_with_missing_label[0] + 1
+      #           priority_queue = [item for item in priority_queue
+      #                                   if abs(item.priority[1]) < max_path_length]
+      #           heapify(priority_queue)
+
+      #         continue
+
+      #     if path_length > 0:
+      #       max_freq: int = path.label_counter.most_common(1)[0][1] # type: ignore
+      #       most_freq_labels: list[int] = [k for k,c in path.label_counter.items()\
+      #                                       if c == max_freq]
+      #       if path_length in k_vals:
+      #         classifications[path_length] |= set(most_freq_labels)
+
+      #       if label in most_freq_labels:
+      #         k_classified_with[label][path_length-1] = True
+
+      #         if path_length == max_path_length:
+      #           k_with_missing_label: list[int] = [ix for ix, val in enumerate(k_classified_with[label])
+      #                                                 if not val]
+      #           max_path_length = 0 if not k_with_missing_label else k_with_missing_label[0] + 1
+      #           priority_queue = [item for item in priority_queue
+      #                                   if abs(item.priority[1]) < max_path_length]
+      #           heapify(priority_queue)
+
+      #     if all(k_classified_with[label][:max_path_length]):
+      #       break
+
+      #   continue_search: bool = False
+      #   if path_length < max_path_length:
+
+      #     for vertex in filter(lambda v: v.id not in path.vertices, label_vertices):
+
+      #       if not skip_vertex(path, vertex, label_count, max_path_length):
+      #         continue_search |= extend_path(path, vertex, priority_queue,
+      #                                        current_distinct_paths, -1)
+
+      #   if not continue_search and 0 < path_length < max_path_length\
+      #      and path.most_common_label[1] <= path.label_counter[label]\
+      #      and not all(k_classified_with[label][path_length-1:]):
+
+      #     for adj in [vx for vx in vertices if vx.id not in path.vertices]:
+      #       if path.label_counter[label] >= path.label_counter[adj.label] + 1 and\
+      #         not skip_vertex(path, adj, label_count, max_path_length):
+
+      #         extend_path(path, adj, priority_queue,current_distinct_paths, -1)
+
+    return classifications
 
   @classmethod
   def build_dominance_graph(cls: Type[DominanceGraph],
-                            adv_region: AdversarialRegion,
+                            adv_region: AdvRegion,
                             dataset: Dataset,
-                            distance_metric: DistanceMetric,
                             max_path_length: int = 7) -> DominanceGraph:
 
-
+    bisectors: dict[tuple[VertexId, VertexId], Hyperplane] = dict()
     dom_matrix: dict[VertexId, Vertex] = dict(
-      [(str(i), Vertex(str(i), dataset.points[i],  dataset.labels[i])) for i in range(dataset.num_points)]
+      [(str(i), Vertex(str(i), dataset.points[i],  dataset.labels[i]))
+                                            for i in range(dataset.num_points)]
     )
+
     initial_vertices: set[int] = set(range(dataset.num_points))
+    to_remove: set[str] = set()
 
     for i in range(dataset.num_points):
 
       if len(dom_matrix[str(i)].closer_vertices) >= max_path_length:
         initial_vertices.discard(i)
+        to_remove.add(str(i))
+        continue
 
       for j in range(i+1, dataset.num_points):
-        match adv_region.get_closer(dataset.points[i], dataset.points[j], distance_metric):
+
+        if len(dom_matrix[str(j)].closer_vertices) >= max_path_length:
+          continue
+
+        bisectors[(str(i), str(j))] = Hyperplane.build_equidistant_plane(
+          dataset.points[i],
+          dataset.points[j]
+        )
+
+        match adv_region.get_closer(bisectors[(str(i), str(j))]):
 
           case Closer.FIRST:
             dom_matrix[str(i)].edges.append(str(j))
@@ -271,11 +613,22 @@ class DominanceGraph:
 
           case Closer.BOTH:
             dom_matrix[str(i)].edges.append(str(j))
+            dom_matrix[str(i)].equidistant_vertices.add(str(j))
+
             dom_matrix[str(j)].edges.append(str(i))
+            dom_matrix[str(j)].equidistant_vertices.add(str(i))
 
     root_edges: list[VertexId]= [str(i) for i in initial_vertices]
     dom_matrix['root'] = Vertex('root', edges=root_edges)
 
+    for node in to_remove:
+      del dom_matrix[node]
+
+    for vertex in dom_matrix.values():
+      vertex.closer_vertices -= to_remove
+      vertex.equidistant_vertices -= to_remove
+      vertex.edges = [edge for edge in vertex.edges if edge not in to_remove]
+
     logger.debug("\t dominance graph: \n")
     logger.debug('%s\n', indent(pformat(dom_matrix, compact=True),'\t\t'))
-    return cls(dom_matrix)
+    return cls(dom_matrix, bisectors)

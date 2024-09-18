@@ -1,14 +1,15 @@
 
-from dataclasses import dataclass, field
-from typing import Optional, Self
+from dataclasses import dataclass
+from typing import Self
 from os.path import join
+from sklearn.base import TransformerMixin
 from sklearn.compose import ColumnTransformer
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 
 from src.utils.base_types import  ArrayNxM
 from .file_reader import csv_reader, libsvm_reader
-from .dataset import Dataset, DatasetParams
+from .dataset import CatFeature, Dataset, DatasetParams, DatasetProps
 
 @dataclass
 class DataLoader:
@@ -32,25 +33,56 @@ class DataLoader:
       raise ValueError("Invalid dataset format. Only libsvm and csv are supported.")
 
     scaled_datasets = self.preprocess_data((training_dataset, test_dataset))
+    DatasetProps.columns = scaled_datasets[0].shape[1]
 
-    if 'category_indexes' in self.params:
-      end_feature_ix = len(self.col_transformer.named_transformers_['one_hot_encoder'].get_feature_names_out()) - 1
-    else:
-      end_feature_ix = 0
 
-    return Dataset(scaled_datasets[0], training_label, end_feature_ix), \
-           Dataset(scaled_datasets[1], test_label, end_feature_ix)
+    if 'category_indexes' in self.params and len(self.params['category_indexes']) > 0:
+      one_hot_enc: OneHotEncoder = self.col_transformer.named_transformers_['one_hot_encoder'] # type: ignore
+      DatasetProps.num_features_start_ix = len(one_hot_enc.get_feature_names_out())# type: ignore
+
+      perturb_features = [] if 'perturb_categories' not in self.params \
+                            else self.params['perturb_categories']
+
+      categories_ix = perturb_features + [cat for cat in self.params['category_indexes']\
+                                             if cat not in perturb_features]
+
+
+      idx = 0
+      for ix, cat_values in enumerate(one_hot_enc.categories_):
+        cat_size = cat_values.size
+        DatasetProps.cat_features[ix] = CatFeature(
+          idx=idx,
+          size=cat_size,
+          perturb= categories_ix[ix] in perturb_features
+        )
+        idx += cat_size
+
+
+    return Dataset(scaled_datasets[0], training_label), \
+           Dataset(scaled_datasets[1], test_label)
 
 
   def preprocess_data(self: Self,
                       dataset: tuple[ArrayNxM, ArrayNxM]) -> tuple[ArrayNxM, ArrayNxM]:
 
-    whole_dataset= np.vstack(dataset)
+    training_set, test_set = dataset
     if not self.col_transformer:
 
-      transformers: list[tuple[str, ColumnTransformer, list[int]]] = []
+      transformers: list[tuple[str, TransformerMixin, list[int]]] = []
 
-      categories_ix: list[int] = self.params['category_indexes'] if 'category_indexes' in self.params else []
+      categories_ix: list[int] = []  if 'category_indexes' not in self.params \
+                                     else self.params['category_indexes']
+
+      perturb_features = [] if 'perturb_categories' not in self.params \
+                            else self.params['perturb_categories']
+
+      if perturb_features and not categories_ix:
+        raise KeyError('To use "perturb_categories" parameter a non empty list\
+                       of categorical feature indexes must be provided.')
+
+      if perturb_features:
+        categories_ix = perturb_features + [cat for cat in categories_ix\
+                                             if cat not in perturb_features]
 
       if categories_ix:
         transformers.append(('one_hot_encoder',
@@ -59,17 +91,14 @@ class DataLoader:
                             categories_ix))
 
       numerical_ix: list[int] = list(set(range(dataset[0].shape[1])) - set(categories_ix))
+      DatasetProps.num_features_ix = numerical_ix
 
       transformers.append(('num_scaler',
-                          MinMaxScaler(feature_range=(0.0, 1.0)),
+                          MinMaxScaler(feature_range=(0, 1)),
                           numerical_ix))
 
       self.col_transformer = ColumnTransformer(transformers)
-      whole_dataset = self.col_transformer.fit_transform(whole_dataset)
-
-    else:
-       whole_dataset = self.col_transformer.transform(whole_dataset)
-
-    training_set, test_set = np.vsplit(whole_dataset, [dataset[0].shape[0]])
+      training_set = self.col_transformer.fit_transform(training_set)
+      test_set = self.col_transformer.transform(test_set)
 
     return  training_set, test_set

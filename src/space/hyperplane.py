@@ -1,8 +1,10 @@
+from __future__ import annotations
 from dataclasses import dataclass
-from typing import Any, List, Self
+from typing import Any, List, Optional, Self
 
 from sklearn.metrics import DistanceMetric
-from src.utils.base_types import NDVector
+from src.dataset.dataset import DatasetProps
+from src.utils.base_types import Array1xN, NDVector
 import numpy as np
 
 @dataclass(init=False)
@@ -36,4 +38,13 @@ class Hyperplane:
         coefs_repr: List[str] = [f"{self.coefficients[i]} x_{i}"
                                  for i in range(0, self.coefficients.shape[0])]
         return ' + '.join(coefs_repr) + f" + {self.constant} = 0"
+
+    @classmethod
+    def build_equidistant_plane(cls: type[Hyperplane], p1: NDVector,
+                                p2: NDVector) -> 'Hyperplane':
+        coefs: Array1xN = 2 * (p2 - p1)
+        const: float  = (p2**2).sum() - (p1**2).sum()
+
+        return cls(coefs, const)
+
 

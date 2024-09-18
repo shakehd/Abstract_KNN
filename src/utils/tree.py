@@ -6,7 +6,7 @@ from sklearn.metrics import DistanceMetric
 
 from src.space.clustering import two_means
 
-from src.utils.base_types import Array1xM, ArrayNxM, NDVector
+from src.utils.base_types import Array1xN, ArrayNxM, NDVector
 import numpy as np
 from ..space.hyperplane import Hyperplane
 
@@ -23,14 +23,14 @@ class Leaf:
 
 @dataclass(init=False)
 class Node:
-  left_child: 'Node' | Leaf
-  right_child: 'Node' | Leaf
+  left_child: 'Node | Leaf'
+  right_child: 'Node | Leaf'
 
   ref_point: NDVector
   axial_hyperplane: Hyperplane
 
-  def __init__(self: Self, left_child: 'Node' | Leaf, right_child: 'Node' | Leaf,
-               ref_point: Optional[Array1xM] = None) -> None:
+  def __init__(self: Self, left_child: 'Node | Leaf', right_child: 'Node | Leaf',
+               ref_point: Optional[Array1xN] = None) -> None:
     self.left_child = left_child
     self.right_child = right_child
 
@@ -41,7 +41,7 @@ class Node:
 
   def _build_axial_hyperplane(self: Self) -> Hyperplane:
 
-    coefs: Array1xM = 2 * (self.left_child.ref_point - self.right_child.ref_point)
+    coefs: Array1xN = 2 * (self.left_child.ref_point - self.right_child.ref_point)
 
     const: float  = (self.left_child.ref_point**2).sum() - \
                         (self.right_child.ref_point**2).sum()
@@ -55,14 +55,11 @@ def build_tree(dataset: ArrayNxM, leaf_size: int, distance_metric: DistanceMetri
 
     if len(indices) <= leaf_size:
 
-      points= dataset[indices]
+      points = dataset[indices]
 
       if ref_point is None:
-        if 'Euclidean' in type(distance_metric).__name__:
-          ref_point = np.mean(points, axis=0)
+        ref_point = np.mean(points, axis=0)
 
-        if 'Manhattan' in type(distance_metric).__name__:
-          ref_point = np.median(points, axis=0)
 
       return Leaf(indices, ref_point) #type: ignore
 
