@@ -1,8 +1,8 @@
 import csv
 from dataclasses import dataclass
 from multiprocessing import cpu_count, get_context
-from operator import itemgetter
-from typing import Any,  Optional
+from multiprocessing.pool import Pool
+from typing import Optional
 from os.path import exists, join
 from os import mkdir
 from tqdm import tqdm
@@ -10,8 +10,6 @@ from numpy import zeros
 import logging
 import argparse
 import time
-import concurrent.futures
-from pebble import MapFuture, ProcessExpired, ProcessPool
 
 from src.abstract.classifier import AbstractClassifier
 from src.dataset.loader import DataLoader
@@ -98,24 +96,11 @@ def classify_point(num_point:int, test_point: ArrayNxM, test_label:int,
     logger.exception(f'An error occurred while classifying: ')
     raise
 
+def classify_point_async(args: tuple[int, ArrayNxM, int, Configuration]) -> Result:
+    return classify_point(*args)
+
 def parallel_main(params: Configuration, partition_size: int = 20,
                   random_state: Optional[int] = None) -> None:
-
-  def collect_result(future: concurrent.futures.Future[Result], pbar: Any,
-                 stable_count: NDVector, robust_count: NDVector,
-                 reclassify_idx: list[int]):
-    try:
-
-      result = future.result()
-      classification_results.append(result.classification)
-      robustness_results.append(result.robustness)
-      stability_results.append(result.stability)
-      stable_count += result.stability_count
-      robust_count += result.robustness_count
-      pbar.update(1)
-
-    except Exception:
-        reclassify_idx.append(futures[future])
 
   global abstract_classifier
   k_values = params['knn_params']['k_values']
@@ -137,34 +122,32 @@ def parallel_main(params: Configuration, partition_size: int = 20,
 
   points: list[tuple[ArrayNxM, int]] = list(zip(test_set.points, test_set.labels))
   tot_points: int = len(points)
-
-  reclassify_idx: list[int] = []
+  classified_points: int = 0
   with tqdm(total=tot_points,
+             bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining} {rate_inv_fmt} {postfix}]',
              desc='Verifying') as pbar:
-    with ProcessPool(
-      max_workers=cpu_count()-2,
+    with Pool(
+      processes=cpu_count(),
       context=get_context('fork'),
       initializer=ProcessLogger.configure_logger_for_process,
-      initargs=(ProcessLogger.get_logger().queue, ProcessLogger.get_logger().level)
-      ) as executor:
+      initargs=(ProcessLogger.get_logger().queue, ProcessLogger.get_logger().level),
+      maxtasksperchild=100
+      ) as pool:
 
-      futures: dict[ProcessFuture, int] = {executor.schedule(classify_point, (ix+1, point, label, params)): ix # type: ignore
-                                  for ix, (point, label) in enumerate(points)} # type: ignore
+      for result in pool.imap_unordered(classify_point_async, [(ix+1, point, label, params)
+                                  for ix, (point, label) in enumerate(points)]):
 
-      for future in futures:
-            future.add_done_callback(
-              lambda fut: collect_result(fut, pbar, stable_count, robust_count, reclassify_idx)
-            )
-
-      if reclassify_idx:
-
-        futures: dict[ProcessFuture, int] = {executor.schedule(classify_point, (ix+start_ix+1, point, label, params)): ix # type: ignore
-                                    for ix, (point, label) in enumerate(itemgetter(*reclassify_idx)(points))}
-        reclassify_idx = []
-        for future in futures:
-            future.add_done_callback(
-              lambda fut: collect_result(fut, pbar, stable_count, reclassify_idx)
-            )
+        classification_results.append(result.classification)
+        robustness_results.append(result.robustness)
+        stability_results.append(result.stability)
+        stable_count += result.stability_count
+        robust_count += result.robustness_count
+        classified_points += 1
+        pbar.set_postfix_str('ROB={}%, STAB={}%'.format(
+          round(sum(robust_count) / (classified_points * len(k_values)) * 100, 1),
+          round(sum(stable_count) / (classified_points * len(k_values)) * 100, 1)
+        ))
+        pbar.update(1)
 
   elapsed_clock: float = time.time() - clock_st
 
@@ -220,10 +203,8 @@ def sequential_main(params: Configuration, partition_size: int = 20,
   abstract_classifier.fit(training_set, partition_size, random_state)
 
   progress_bar = tqdm(
-      zip([test_set.points[18]], [test_set.labels[18]]),
-      total=1,
-      # zip(test_set.points, test_set.labels),
-      # total=test_set.num_points,
+      zip(test_set.points, test_set.labels),
+      total=test_set.num_points,
       bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining} {rate_inv_fmt} {postfix}]',
       desc='Verifying'
   )
@@ -274,8 +255,6 @@ def sequential_main(params: Configuration, partition_size: int = 20,
           round(sum(robust_count) / (classified_points * len(k_values)) * 100, 1),
           round(sum(stable_count) / (classified_points * len(k_values)) * 100, 1)
     ))
-
-
 
   elapsed_clock: float = time.time() - clock_st
   elapsed_process: float = time.process_time() - process_st
@@ -360,6 +339,8 @@ if __name__ == "__main__":
       process_logger.start()
 
       parallel_main(params, args.partition_size, args.random_state)
+
+      logger.info("Finished classifying !!")
 
       process_logger.stop()
       process_logger.join()

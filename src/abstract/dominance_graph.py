@@ -487,9 +487,10 @@ class DominanceGraph:
 
           if path.most_common_label[1] <= path.label_counter[label]\
            and not all(k_classified_with[label][path_length-1:]):
-            for adj in possible_vertices:
-              if path.label_counter[label] >= path.label_counter[adj.label] + 1:
-                extend_path(path, adj, priority_queue,current_distinct_paths, -1)
+            for adj in self[path.last].edges:
+              v_adj: Vertex = self[adj]
+              if path.label_counter[label] >= path.label_counter[v_adj.label] + 1:
+                extend_path(path, v_adj, priority_queue,current_distinct_paths, -1)
 
 
       # while len(priority_queue):
@@ -559,11 +560,12 @@ class DominanceGraph:
       #      and path.most_common_label[1] <= path.label_counter[label]\
       #      and not all(k_classified_with[label][path_length-1:]):
 
-      #     for adj in [vx for vx in vertices if vx.id not in path.vertices]:
-      #       if path.label_counter[label] >= path.label_counter[adj.label] + 1 and\
-      #         not skip_vertex(path, adj, label_count, max_path_length):
+      #     for adj in [vx for vx in self[path.last].edges if vx not in path.vertices]:
+      #       v_adj: Vertex = self[adj]
+      #       if path.label_counter[label] >= path.label_counter[v_adj.label] + 1 and\
+      #         not skip_vertex(path, v_adj, label_count, max_path_length):
 
-      #         extend_path(path, adj, priority_queue,current_distinct_paths, -1)
+      #         extend_path(path, v_adj, priority_queue,current_distinct_paths, -1)
 
     return classifications
 

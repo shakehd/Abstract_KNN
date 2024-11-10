@@ -97,7 +97,9 @@
 #let reqv(var) = {$mono("req")(var)$}
 #let lenv(var) = {$mono("len")(var)$}
 #let predv(var) = {$mono("pred")(var)$}
+#let samedistv(var) = {$mono("same_dist")(var)$}
 
 #let setp(var) = {$mono("set")^(star)(var)$}
 #let reqp(var) = {$mono("req")^(star)(var)$}
 #let lenp(var) = {$mono("len")^(star)(var)$}
+#let sign(content) = {$op(italic("sign"))(content)$}

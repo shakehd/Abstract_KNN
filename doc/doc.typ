@@ -1,4 +1,4 @@
-#import "utils.typ": algorithm, var, func, setv, reqv, lenv, predv, setp, reqp, lenp, line
+#import "utils.typ": algorithm, var, func, setv, reqv, lenv, predv, setp, reqp, lenp, line, sign, samedistv
 #import "template.typ": project, prop, proof, definition, example,theorem, pert, pre, apre, npre, napre
 #import "@preview/algo:0.3.3": i, d, comment, code, no-emph
 #import "@preview/diagraph:0.2.1": *
@@ -13,97 +13,111 @@
   ),
 )
 
+#outline(
+  title: [Contents],
+  indent: 2em,
+)
+
+#pagebreak()
+
 = Concrete algorithm
 
-Given a set of labels $cal(L)$ and the dataset $S = {(s^(i), y^(i)) |
-s^(i) in bb(R)^n, y^(i) in cal(L)}$ and the input sample $x in
-bb(R)^n$, $"GKNN": bb(R)^n -> cal(P)(cal(L))$ is function that
-classify the input with the most frequent label within the $k$
-closest samples to the input like the $k$NN algorithm but differs
-from it in the way those samples are found. Rather than sort the
-samples in oder of their proximity to the input and then select the
-first $k$ samples, GKNN use the relation of "being closer to the
-input" between pair of samples w.r.t. the minkowski norm to select
-the $k$ closest samples. The relation is defined as follow:
+Given a set of labels $cal(L)$ and the dataset $S = {(bold(s)^(i),
+bold(y)^(i)) | bold(s)^(i) in bb(R)^n, bold(y)^(i) in cal(L)}$ and the
+input sample $bold(x) in bb(R)^n$, $"GKNN": bb(R)^n -> cal(P)(cal(L))$
+is function that classify the input with the most frequent label
+within the $k$ closest samples to the input like the $k$NN algorithm
+but differs from it in the way those samples are found. Rather than
+sort the samples in oder of their proximity to the input and then
+select the first $k$ samples, GKNN use the relation of "being closer
+to the input" between pair of samples w.r.t. the euclidean norm to
+select the $k$ closest samples. The relation is defined as follow:
 
-#definition([Relation $prec.eq$])[Given the points $x,
-s_i, s_j in bb(R)^n$, "$s_i attach(prec.eq, br: x) s_j$" means $s_i$
-is closer to the input than $s_i$ w.r.t. the minkowski norm that is
-$|| x - s^(i) ||_p lt.eq || x - s^(j) ||_p$. The subscript
-$x$ will be omitted when is clear from the context.]
+#definition([Relation $attach(prec.eq, br: bold(x))$])[Given the
+points $bold(x), bold(s)_i, bold(s)_j in bb(R)^n$,
+$
+  bold(s)_i attach(prec.eq, br: bold(x)) bold(s)_j
+  arrow.l.r.double.long ||bold(x) - bold(s)_i|| lt.eq
+  ||bold(x) - bold(s)_j||
+$
+The subscript $bold(x)$ will be omitted when is clear from the
+context.]
 
 GKNN first build a "precedence" graph $bb(G)$ in which nodes
-are the samples in $S$ and edges model the relation $attach(prec.eq,
-br: x)$ (i.e. the tail is closer to the input than the head) and then
-classify the input with the most frequent labels within the vertices
-composing the valid paths #footnote[The definition of a valid is given
-later in @path-sec] of length $k-1$ starting from the samples closest
-to the input.
+represents the samples in $S$ and edges model the relation
+$attach(prec.eq, br: x)$ (i.e. the tail is closer to the input than
+the head) and then classify the input with the most frequent labels
+within the vertices composing the valid paths #footnote[The definition
+of a valid is given later in @path-sec] of length $k-1$ starting from
+the samples closest to the input.
 
 == Precedence graph
 
-The precedence graph $bb(G)_x = (V, E)$ is a graphical representation
-of the totally ordered set $(S, attach(prec.eq, br: x))$:
+Given the set of samples $S$ the precedence graph $bb(G)_bold(x) =
+(V, E)$ is a graphical representation of the totally ordered set
+$(S, attach(prec.eq, br: x))$>
 
 - $V = S$
-- $E = {(v_i, v_j) bar.v || x - s^(i) ||_p lt.eq || x - s^(j) ||_p }$
+- $E = {(bold(s)_i, bold(s)_j) bar.v  bold(s)_i prec.eq bold(s)_j "is true"}$
 where $||dot.op||_p$ is the minkowski norm.
 
 The graph is implemented using adjacent lists so each vertex object
-has a list of adjacent vertices. Moreover each vertex $v_i$ also has a
-set attribute, named $mono("predecessors")$, that contains all the
-vertices $v_j$ such that there is an incoming edge from $v_j$ but not
-an outgoing edge that is
-$
-  (v_j, v_i) in E "and" (v_i, v_j) in.not E
-$
+has a list of adjacent vertices. Moreover given a vertex $bold(s)$:
+
+  - $predv(bold(s))$ denotes the set of vertices $bold(s)_i$
+    such that there is an edge from $bold(s)_i$ to $bold(s)$ but not
+    the other way around that is
+    $
+      (bold(s)_i, bold(s)) in E and (bold(s), bold(s)_i)  in.not E
+    $
+
+  - $samedistv(bold(s))$ represents the set of vertices
+    $bold(s)_i$ such that there is a bidirectional edge between
+    $bold(s)_i$ and $bold(s)$ that is
+    $
+      (bold(s)_i, bold(s))  in E and (bold(s), bold(s)_i) in E
+    $
+
 This means that
 $
-  forall v_j in v_i.mono("predecessors") space  v_j prec.eq v_i
-  " and " v_i prec.eq.not v_j
+  forall bold(s)_j in predv(bold(s)) space bold(s)_j prec.eq bold(s)
+  and bold(s) prec.eq.not bold(s)_j
 $
 
-This information will be used for the generation of valid paths
-based on how close the samples are to the input sample. In the
-remainder of the document the vertex associated with sample $s_i$
-is denoted with $bb(G)_(x)[s_i]$ while the sample associated with the
-vertex $v_j$ is denoted simply with $s_j$.
+This observation will be used for the generation of valid paths
+based on how close the samples are to the input sample.
 
-@create_precedence_graph shows how the graph is created. Given the
-sample dataset $S$ and the input sample $x$, it first create the
-graph $bb(G)$ with only the vertices with their
-$mono("predecessors")$ and $mono("adjacent")$ attributes set to the
-empty set (line $mono(1)$). Then for each unordered pair of samples
-$(s_i,s_j)$ we check which sample between $s_i$ and $s_j$ is closer
-to the input sample $x$ w.r t. the minkowski norm and update both
-vertex attributes accordingly (line $mono(2-12)$). If $s_i$ and $s_j$
-are equidistant than only the adjacent lists are updated since $s_j
-prec.eq s_i$ and $s_i prec.eq s_j$ (line $mono(3-5)$). Finally the
-created graph is returned (line $mono(15)$).
+@create_precedence_graph shows how the precendence graph is created.
+Given the sample dataset $S$ and the input sample $bold(x)$, it first
+create the graph $bb(G)$ with only the vertices habing no adjacent
+vertex. attributes set to the (line $mono("1")$). Then for each
+unordered pair of samples $(bold(s)_i, bold(s)_j)$ the closer sample
+to the input $bold(x)$ w.r t. the euclidean norm is determined and
+update the adjacent lists of both vertices accordingly (line
+$mono("2-12")$). Finally the created graph is returned
+(line $mono("15")$).
 
 #algorithm(
   title: [$mono("create_precedence_graph")$ method],
-  output: ([$bb(G)_x$: precedence graph],),
+  output: ([$bb(G)_bold(x)$: precedence graph],),
   input: (
-    [*$S$*: samples dataset],
-    [*$x$*: the input sample]
+    [*$var(S)$*: samples dataset],
+    [*$var(x)$*: the input sample]
   ))[
-    $bb(G)_x <-$#func("initialize_graph", $S$)\
+    $bb(G)_bold(x) <-$#func("initialize_graph", $var(S)$)\
 
-    for $(s_i, s_j)$ in ${(s_i,s_j)| s_i,s_j in S, s_i eq.not s_j}$
+    for $(s_i, s_j)$ in ${(s_i,s_j)| s_i,s_j in var(S), s_i eq.not s_j}$
     do#i\
       if $s_i prec.eq s_j$ and $s_j prec.eq s_i$ then#i\
-        add $bb(G)_(x)[s_j]$ to $bb(G)_(x)[s_i].mono("adjacent")$\
-        add $bb(G)_(x)[s_i]$ to $bb(G)_(x)[s_j].mono("adjacent")$#d\
+        add $s_j$ to adjacent of $s_i$\
+        add $s_i$ to adjacent of $s_j$#d\
       else if $s_i prec.eq s_j$ then#i\
-        add $bb(G)[s_j]$ to $bb(G)_(x)[s_i].mono("adjacent")$\
-        add $bb(G)[s_i]$ to $bb(G)_(x)[s_j].mono("predecessors")$#d\
+        add $s_j$ to adjacent of of $s_i$\
       else#i\
-        add $bb(G)_(x)[s_i]$ to $bb(G)_(x)[s_j].mono("adjacent")$\
-        add $bb(G)_(x)[s_j]$ to $bb(G)_(x)[s_i].mono("predecessors")$#d\
+        add $s_i$ to adjacent of of $s_j$\
       end#d\
     end\
-    return $bb(G)_x$
+    return $bb(G)_bold(x)$
   ]<create_precedence_graph>
 
 #example[
@@ -140,77 +154,75 @@ caption: "Example of precedence graph.")
 
 In order to have a sound classification the paths within the
 precedence graph used to classify the input must satisfy all the
-proximity relation among the samples that is if $v_i prec.eq v_j$ but
-$v_j prec.eq.not v_i$ then every path in which $v_j$ occurs must also
-contain $v_i$ and it must precede $v_j$. This means that not all
-paths starting from the input sample can be used to classify the
-input. For example in the graph of @example11 the path [$bold(b)$,
-$bold(c)$] is not a valid because $bold(a) prec.eq bold(c)$ but
-$bold(c) prec.eq.not bold(a)$ so this means that in every valid
-path $bold(c)$ must be preceded by $bold(a)$. This observation leads
-to the following definition fo a valid path:
+proximity relation among the samples that is if $bold(s)_i prec.eq
+bold(s)_j$ but $bold(s)_j prec.eq.not bold(s)_i$ then every path in
+which $bold(s)_j$ occurs must also contain $bold(s)_i$ and it must
+precede $bold(s)_j$. This means that not all paths starting from the
+closest sample can be used to classify the input. For example in the
+graph of @example11 the path [$bold(b)$, $bold(c)$] is not a valid
+because $bold(a) prec.eq bold(c)$ but $bold(c) prec.eq.not bold(a)$
+so this means that in every valid path $bold(c)$ must be preceded by
+$bold(a)$. This observation leads to the following definition fo a
+valid path:
 
 #definition("Valid path")[
 A path $cal(P)$ in a precedence graph is _valid_ if and only if
-$forall v_i in cal(P)$:
+$forall bold(s)_i in cal(P)$:
 $
- forall v_j in v_i.mono("predecessors") space v_j
- "is a predecessor of " v_i "in" cal(P)
-$]
+ forall bold(s)_j in predv(bold(s)_i) space bold(s)_j
+ "is a predecessor of " bold(s)_i "in" cal(P)
+$]<def-valid-path>
 
 By this definition in the graph of @example11 only the edges
-highlighted with the same color form valid path which are:
+highlighted with the same color form valid paths which are:
 
 - [$bold(b)$, $bold(a)$,$bold(c)$]
 - [$bold(a)$, $bold(b)$,$bold(c)$]
 
 #prop[Every valid path starts with a vertex $v_i$ such that the sample
-$s_i$ is one of the closest sample to the input $x$]<prop00>
+$bold(s)_i$ is one of the closest sample to the input $bold(x)$]<prop00>
 #proof[Follows directly from the definition of valid path.]
 
-#prop[If a vertex $v$ do not occur in a valid path $cal(P)$ and
-every vertex in $v.mono("predecessors")$ is in $cal(P)$ then the path
-$cal(P) + [v]$ is still valid.]<prop11>
+#prop[If a vertex $bold(s)$ do not occur in a valid path $cal(P)$ and
+every vertex in $predv(bold(s))$ is in $cal(P)$ then the path
+$cal(P) + [bold(s)]$ is still valid.]<prop11>
 #proof[Follows directly from the definition of valid path.]
 
-#definition("Safe vertex")[A vertex satisfying the conditions of
-@prop11 for a path $cal(P)$ is called a _safe_ vertex for $cal(P)$.]
+#definition("safe vertex")[Given the valid path $cal(P) =[bold(s)_0,
+bold(s)_1,dots, bold(s)_m]$ the vertex $bold(s)$ is _safe_ for
+$cal(P)$ if the path $cal(P) + [bold(s)]$ is a valid path.]
 
-#prop[Valid paths of length $k-1$ starting from vertices $v_i$ with
-empty $v_i.mono("predecessors")$ contains the $k$ closest samples
+#prop[Valid paths of length $k-1$ starting from vertices $bold(s)_i$
+such that $predv(bold(s)) = emptyset$ contains the $k$ closest samples
 from the input.]<prop12>
-#proof[Notice that if the set $mono("predecessors")$ of a vertex $v_i$
-  is empty it means that the associated sample $s_i$ is one of the
-  closest sample to the input $x$ since $exists.not s_j in S "s.t."
-  s_j prec.eq s_i "and" s_i prec.eq.not s_j$. Then the proposition
-  follows directly from the definitions of a path in a graph and
+#proof[Follows directly from the definitions of a path in a graph and
   valid paths.]
 
 The generation of paths is done by traversing the graph in the same
 fashion of the BFS algorithm while respecting the condition of a
-valid path. @path_generation shows how path are generated given the
-the precedence graph $bb(G)_x$ and the desired length $n$ of the path.
-The algorithm make use of a FIFO queue (the variable $var("queue")$)
-to maintain the list of all valid paths of length less than $k < n$.
-First it initialize the queue with the vertices having an empty set as
-$mono("predecessors") $(lines $mono(1-2)$) which means the traversal
-starts from the vertex associated with samples closest to the input
-$x$. A counter $k$ which denotes the length of the paths in the queue
-is initialized with 0 (line $mono(3))$. Then until the queue is not
-empty extracts all the paths present in the queue and check whether
-their length is equal to desired length (i.e the input *n*) and if
-this is the case the it simply returns the extracted paths (lines
-$mono(6-7)$) otherwise iteratively extend each path with every safe
-vertex among the adjacent of the path's last vertex and add the
-extended paths to the queue for the next iteration of the loop (lines
-$mono(8-15))$. Before the next loop the counter $k$ is also
+valid path. @path_generation shows how paths are generated given the
+the precedence graph $bb(G)_bold(x)$ and the desired length $n$ of the
+path. The algorithm make use of a FIFO queue (the variable
+$var("queue")$) to maintain the list of all valid paths of length less
+than $k < n$. First it initialize the queue with the vertices
+$bold(s)$ such that $predv(bold(s)) = emptyset$ (lines $mono("1-2")$)
+which means the traversal starts from the samples closest to the input
+$bold(x)$. A counter $k$ which denotes the length of the paths in the
+queue is initialized with 0 (line $mono(3))$. Then until the queue is
+not empty extracts all the paths present in the queue and check
+whether their length is equal to desired length (i.e the input *n*)
+and if this is the case the it simply returns the extracted paths
+(lines $mono("6-7")$) otherwise iteratively extend each path with
+every safe vertex within the adjacent of the path's last sample and
+add the extended paths to the queue for the next iteration of the loop
+(lines $mono("8-15"))$. Before the next loop the counter $k$ is also
 incremented to reflect the length of the paths in the queue (line
 $mono(16))$.
 
-#prop[Given as input the the precedence graph $bb(G)_x$ abd $n in
-bb(N)$ @path_generation returns all the valid paths of length
+#prop[Given as input the the precedence graph $bb(G)_bold(x)$ and
+$n in bb(N)$ @path_generation returns all the valid paths of length
 #footnote[The convention used for path of length 0 is that it
-contains only the starting vertex.] $n$ within $bb(G)_x$.]
+contains only the starting vertex.] $n$ within $bb(G)_bold(x)$.]
 <prop13>
 #proof[
 The proposition can be proved by showing, that at the $k$-th iteration
@@ -219,16 +231,17 @@ paths on the queue), the queue contains all the valid path of length
 $k-1$. We use induction on $k$ to prove this:
 
  - (*$k=1$*): In the first iteration of the loop the queue contains
-   all the paths composed vertices with empty $mono("predecessors")$
-   which are of length 0 and surely are valid by definition.
+   all the paths composed vertices $bold(s)$ such that $predv(bold(s))
+   = emptyset$ which are of length 0 and surely are valid by
+   definition.
 
 - (*$k=h+1$*): At iteration $h + 1$, the paths inside the queue at
-  5 are obtained by extending all the paths in the queue in the $h$-th
-  iteration with every safe vertex among the adjacent of the path's
-  last vertex. By induction hypothesis the queue in the $h$-th
+  line 5 are obtained by extending all the paths in the queue in the
+  $h$-th iteration with every safe vertex among the adjacent of the
+  path's last vertex. By induction hypothesis the queue in the $h$-th
   iteration contains all the valid paths of length $h-1$ and so in the
-  $h+1$ iteration the queue contains all the valid paths of length
-  $h$.
+  $h+1$ iteration, by definition of safe vertex, the queue contains
+  all the valid paths of length $h$.
 
 This means when the method returns, at iteration $n$, the queue
 contains all the possible valid path of length $n-1$.]
@@ -236,12 +249,12 @@ contains all the possible valid path of length $n-1$.]
 #algorithm(title: [$mono("generate_paths")$ method],
            output: ([Set of valid paths],),
            input: (
-            [*$G_x$*: precedence graph,],
-            [*n*: length of the path]
+            [*$var(G_bold(x))$*: precedence graph,],
+            [*var(n)*: length of the path]
            ))[
-  $var("closest_vertices") <- {[v_i] | v_i in bb(G)_x,space
-  v_i.mono("precedence") = emptyset}$\
-  $var("queue") <- func("create_queue", var("closest_vertices"))$\
+  $var("closest_samples") <- {[s_i] | s_i in var(G_bold(x)) and
+  predv(s_i) = emptyset}$\
+  $var("queue") <- func("create_queue", var("closest_samples"))$\
   $var("k") <- 0$\
   while #var("queue") not *empty* do#i\
     $var("current_paths") <- var("queue").func("popAll")$\
@@ -270,29 +283,30 @@ contains all the possible valid path of length $n-1$.]
 == GKNN algorithm
 
 @gknn-algh shows the pseudocode of the algorithm. Given a set of
-samples $S$ and the input sample $x$ the algorithm first build the
-precedence graph $bb(G)$ (line $mono(1)$). Then the
+samples $S$ and the input sample $bold(x)$ the algorithm first build
+the precedence graph $bb(G)_bold(x)$ (line $mono(1)$). Then the
 $mono("generate_paths")$ method is used to find the valid paths
 of length length $k-1$ within the graph (line $mono(2)$).
 Afterwards the set containing the most frequent labels within the
 samples composing each path is computed and returned as the possible
-classifications of the input sample (line $mono(3)$-$mono(8)$).
+classifications of the input sample (line $mono("3-8")$).
 
 Since there could be multiple valid paths in the graph due to
 samples in $S$ equidistant to the input, the latter could be
 classified with different labels hence the need to return a set of
 labels rather than a single value.
 
-#theorem[Given a dataset $S = {(s^(i), y^(i)) | s^(i) in bb(R)^n,
-y^(i) in bb(R)}$ and the input sample $x$, GKNN returns all
-the possible classifications of the input $x$.]
+#theorem[Given a dataset $S = {(bold(s)_(i), bold(y)_(i)) |
+bold(s)_(i) in bb(R)^n, bold(y)_(i) in bb(R)}$ and the input sample
+$bold(x)$, GKNN returns all the possible classifications of the input
+$bold(x)$.]
 #proof[
   GKNN compute the set of possible classification by finding the most
   frequent labels in the paths returned by the
   $mono("generate_paths")$ method which, by @prop12 and @prop13,
   returns all the possible $k$ closest samples to the input.
   Therefore GKNN surely returns all the possible classification of
-  the input $x$.
+  the input $bold(x)$.
 ]
 
 #example[Consider the setup of @example11. Running GKNN with $k =
@@ -305,14 +319,14 @@ the possible classifications of the input $x$.]
   title: "GKNN algoritm",
   output: ([Set of possible classification of $x$],),
   input: (
-    [*$x$*: the input sample],
-    [*$S$*: samples dataset],
-    [*$k$*: number of neighbours],
+    [*$var(x)$*: the input sample],
+    [*$var(S)$*: samples dataset],
+    [*$var(k)$*: number of neighbours],
   ))[
 
-  $bb(G)_x <-$  #func("create_precedence_graph", $S$, $x$)\
+  $bb(G)_bold(x) <-$  #func("create_precedence_graph", $S$, $x$)\
 
-  $var("paths") <-$ #func("generate_paths", $bb(G)_x$, $k-1$)\
+  $var("paths") <-$ #func("generate_paths", $bb(G)_bold(x)$, $k-1$)\
   $var("classification") <- {}$\
   for #var("path") in #var("paths") do#i\
     $var("labels") <- "most frequent labels in "mono("path")$\
@@ -369,20 +383,20 @@ the node initialized with the splitting hyperplane and the subtrees
 constructed before (line $mono(7)$).
 
 #algorithm(title: [$mono("build_bsp_tree")$ method],
-           input: ([*$S$*: samples dataset,],
-                   [*$m$*: the minimum size of a partition]),
+           input: ([*$var(S)$*: samples dataset,],
+                   [*$var(m)$*: the minimum size of a partition]),
            output: ([BSP-Tree ],))[
 
-  if $|S| <= m$ then#i\
-   return #func("Leaf", $S$)#d\
+  if $|var(S)| <= var(m)$ then#i\
+   return #func("Leaf", $var(S)$)#d\
   end\
 
   $var("left_dataset"), var("right_dataset"), var("hyperplane") <-
-          func("split_dataset", S)$\
+          func("split_dataset", var(S))$\
 
-  $var("left_tree")<- func("build_bsp_tree",var("left_dataset"), m)$\
+  $var("left_tree")<- func("build_bsp_tree",var("left_dataset"), var(m))$\
   $var("right_tree")<- func("build_bsp_tree", var("right_dataset"),
-                            m)$\
+                            var(m))$\
 
   return #func("Node", var("hyperplane"),  var("left_tree"),
                var("right_tree"))
@@ -493,8 +507,8 @@ partition in which the point is located while for a hypershpere are
 the partitions that intersect with it (line $mono(12)$).
 
 #algorithm(title: [$mono("query_partition")$ method],
-           input: ([*$"BSP-T"$*: the BSP-Tree, ],
-                   [*$x$*: the input query(point or hypershpere)]),
+           input: ([*$var("BSP-T")$*: the BSP-Tree, ],
+                   [*$var(x)$*: the input query(point or hypershpere)]),
            output: ([Set of partitions],))[
 
   $var("queue") <- func("create_queue", {"BSP-T".italic("root")})$\
@@ -514,106 +528,239 @@ the partitions that intersect with it (line $mono(12)$).
 
 
 #pagebreak()
-= Naive abstract classifier
+= Abstract classifier
 
-In the abstract case there is the same datasets $S = {(s^(i),
-y^(i)) | s^(i) in bb(R)^n, y^(i) in bb(R)}$ but the input query is
-not a single point $x in bb(R)^n$ but instead is region of space.
-around the point $x$. This region of space, denoted with P(x),
-represents a (small) perturbation of the point $x$ and is defined as
-the $ell_infinity$ ball centered in $x$ and radius $epsilon$:
-$
- pert(x) = {x' | x' in bb(R)^n,space ||x'- x||_infinity <= epsilon}
-$
+In the abstract case there is the same datasets $S = {(bold(s)_i,
+bold(y)_i) | bold(s)_i in bb(R)^n, bold(y)_i in bb(R)}$ but the input
+query is not a single point $bold(x) in bb(R)^n$ but instead is region
+of space around the point $x$. This region of space, denoted with
+$pert(bold(x))$, represents a (small) perturbation of the point
+$bold(x)$ and is defined as the $ell_infinity$ ball centered in
+$bold(x)$ and radius $epsilon$:
+
+#block()[
+  #set math.equation(numbering: "(1)")
+  $
+    pert(bold(x)) = {bold(x)' | bold(x)' in bb(R)^n and
+    ||bold(x)'- bold(x)||_infinity <= epsilon}
+  $<pert>
+]
+
 In this case the abstract classifier $"AGKNN":  cal(P)(bb(R)^n) ->
 cal(P)(cal(L))$ is a function that takes as input a region of space
 (i.e, $pert(x)$) and outputs a set of labels. The condition that the
 abstract classifier must satisfy is that it has to be a _sound
 abstraction_ of the concrete classifier over the perturbation of the
-input $x$ which means the returned set of labels must contains all the
-output of the concrete classifier on each point of region that is
+input $bold(x)$ which means the returned set of labels must contains
+all the output of the concrete classifier on each point of region
+that is
 #block()[
   #set math.equation(numbering: "(1)")
   $
-   "AGKNN"(R) supset.eq limits(union.big)_(x' in R) "GKNN"(x')
+   "AGKNN"(R) supset.eq limits(union.big)_(bold(x)' in R) "GKNN"(x')
   $<output>
 ]
 
-Computing $"AGKNN"(pert(x))$ by applying the concrete classifier to
-each point of the perturbation is obviously unfeasible since it
+Computing $"AGKNN"(pert(bold(x)))$ by applying the concrete classifier
+on each point of the perturbation is obviously unfeasible since it
 contains an infinite number of points. But notice that the output of
 the concrete classifier depends manly on the valid paths within the
-precedence graph it builds. So by applying GKNN with a precedence
-graph (i.e., the one created in line $mono(1)$ in @gknn-algh) that
-contains all the valid paths of each graph constructed by the
-concrete classifiers in @output, the output of AGKNN can be computed
-because the number of valid paths to explore is finite. This leads to
-@agknn-algh which shows the abstract classifier to be the same as
-@gknn-algh with the only difference being the creation of the
-precedence graph from which extracts the valid paths.
+precedence graph it builds. So following this observation
+$"AGKNN"(R)$ can be computed as follow:
 
-#algorithm(
-  title: "AGKNN algoritm",
-  output: ([Set of possible classification of $x$],),
-  input: (
-    [*$x$*: the input sample],
-    [*$epsilon$*: the degree of perturbation],
-    [*$S$*: samples dataset],
-    [*$k$*: number of neighbours],
-  ))[
++ Create an (abstract) precedence graph $bb(G)^A_(bold(x))$ such that
+  it contains all the valid paths of any concrete precedence graph
+  $bb(G)_bold(x)'$ where $bold(x)' in pert(bold(x))$;
 
-  $bb(G)^A_(x) <-$  #func("create_abstract_precedence_graph",
-                      $S$, $x$, $epsilon$)\
++ Collect every path in $bb(G)^A_(bold(x))$ which is a valid path in
+  some concrete precedence graph $bb(G)_bold(x)'$
 
-  $var("paths") <-$ #func("generate_paths", $bb(G)^A_(x)$, $k-1$)\
-  $var("classification") <- {}$\
-  for #var("path") in #var("paths") do#i\
-    $var("labels") <- "most frequent labels in "mono("path")$\
-    $var("classification") <- var("labels") union
-                              var("classification")$#d\
-  end\
-  return #var("classification")
-]<agknn-algh>
++ Classify the perturbation with most frequent labels in each path
+  collected in the previous step.
 
-== Abstract precedence graph
+With the above procedure the output of AGKNN can be computed
+since the number of valid paths to explore is finite.
 
-Let $bb(G)^A_(x)$ be the (abstract) precedence graph build by AGKNN
-when called with the perturbation $pert(x)$ and suppose for example
-there are two samples $s_1, s_2 in S$ and points $x_1, x_2 in
-pert(x)$ such that$
+== Abstract precedence graph<apg>
+
+To understand how to construct the abstract precedence graph
+$bb(G)^A_(bold(x))$ suppose for example there are two samples
+$bold(s)_1, bold(s)_2 in S$ and points $x_1, x_2 in pert(bold(x))$ such that
+$
   cases(
-    pre(s_1, s_2, x: "x1") "and" npre(s_2, s_1, x: "x1"),
-    pre(s_2, s_1, x: "x2") "and" npre(s_1, s_2, x: "x2")
+    pre(bold(s)_1, bold(s)_2, x: bold(x)_1) "and"
+    npre(bold(s)_2, bold(s)_1, x: bold(x)_1),
+    pre(bold(s)_2, bold(s)_1, x: bold(x)_2) "and"
+    npre(bold(s)_1, bold(s)_2, x: bold(x)_2)
   )
 $
-that is $s_1$ is strictly closer to $x_1$ than $s_2$ while $s_2$ is
-strictly closer to $x_2$ than $s_1$. In this case paths in which
-$s_1$ is a predecessor of $s_2$ and those in which $s_2$ is a
-predecessor of $s_1$ are valid paths in $bb(G)_(x_1)$ and
-$bb(G)_(x_2)$ respectively and so they need to be both valid paths in
-the abstract precedence graph $bb(G)^A_(x)$ as well. This leads to the
-definition of the following relation between samples:
+that is $bold(s)_1$ is strictly closer to $bold(x)_1$ than $bold(s)_2$
+while $bold(s)_2$ is strictly closer to $bold(x)_2$ than $bold(s)_1$.
+In this case paths in which $bold(s)_1$ is a predecessor of
+$bold(s)_2$ and those in which $bold(s)_2$ is a predecessor of
+$bold(s)_1$ are valid paths in $bb(G)_(bold(x)_1)$ and
+$bb(G)_(bold(x)_2)$ respectively and so they need to be both valid
+paths in the abstract precedence graph $bb(G)^A_(bold(x))$ as well.
+This leads to the definition of the following relation between
+samples:
 
 #definition([$attach(
-prec.eq, tr: sscript(A), br: (x, epsilon))$ relation])[
-Given $x in bb(R)^n, epsilon in bb(N)$ and $s_1 s_2 in S$
+prec.eq, tr: sscript(A), br: (bold(x), epsilon))$ relation])[
+Given $bold(x) in bb(R)^n, epsilon in bb(N)$ and $bold(s)_1,
+bold(s)_2 in S$
 $
-  s_1 attach(prec.eq, tr: sscript(A), br:(x, epsilon)) s_2
-   arrow.l.r.double.long exists x_i in pert(x) space
-  pre(s_1, s_2, x: x_i)
+  bold(s)_1 attach(prec.eq, tr: sscript(A), br:(bold(x), epsilon))
+  bold(s)_2 arrow.l.r.double.long exists bold(x)_i in pert(bold(x))
+  space pre(bold(s)_1, bold(s)_2, x: bold(x)_i)
 $
 In the following, for ease of the notation, the subscript $epsilon$
-will be dropped since it is assumed to be constant.]
+will be dropped since it is constant.]
 
-By this definition $apre(s_1, s_2)$ and $apre(s_2, s_1)$ and so there
-should be a edge between $bb(G)^A_(x)[s_1]$ and $bb(G)^A_(x)[s_2]$ in
-both direction. Consequently just as the concrete precedence graph is
-the graphical representation of the total order $(S, attach(prec.eq,
-br: x))$, the abstract precedence graph is the graphical
-representation of the total order $(S, attach(prec.eq, tr: A, br: x))
-$. So the procedure $mono("create_abstract_precedence_graph")$ is the
-same as @create_precedence_graph with the only difference that the
-order relation used is $attach(prec.eq, tr: A, br: x)$.
+By this definition $apre(bold(s)_1, bold(s)_2)$ and
+$apre(bold(s)_2, bold(s)_1)$ and so there should be a edge between
+$bb(G)^A_(bold(x))[bold(s)_1]$ and $bb(G)^A_(bold(x))[bold(s)_2]$ in
+both direction. If instead $apre(bold(s)_1, bold(s)_2)$ but
+$napre(bold(s)_2, bold(s)_1)$ then there is only an edge from
+$bb(G)^A_(bold(x))[bold(s)_1]$ to $bb(G)^A_(bold(x))[bold(s)_2]$
+but not the other way around.
+
+To determine if the relation $attach(prec.eq, tr: A, br: bold(x))$
+exists between two samples $bold(s)_1, bold(s)_2$, one would need to
+verify for each point $bold(x)_1 in pert(bold(x))$ whether
+$pre(bold(s)_1, bold(s)_2, x: bold(x)_1)$ holds. However, this
+approach is impractical due to the infinite number of points in
+$pert(bold(x))$. A more feasible method is to check whether the
+perpendicular bisector of $bold(s)_1$ and $bold(s)_2$ intersect with
+$pert(bold(x))$. The following result shows a sufficient condition
+that can be used to check this intersection efficiently:
+
+#definition([$italic("pos_neg")$ function])[
+  Given $x in bb(R)$ let $italic("pos_neg"): bb(R)^n ->
+  {-1, 1}$ defined as
+
+  $
+  italic("pos_neg")(x) = bb(H)(x) - 1 dot.op (1 - bb(H)(x)) =
+  cases(
+    thick thick thin 1  &"if" x >= 0,
+    -1 &"otherwise"
+  )
+  $
+  where $bb(H)$ is the heaveside step function with the convention
+  that $bb(H)(0)$ = 1.
+]
+
+#definition([Hyperplane])[Given $bold(n), bold(v) in bb(R)^n, b in
+bb(R)$ let $pi attach(:=, t:"def") bold(n) dot bold(v) - b = 0$ be an
+equation of an hyperplane then given $bold(w) in bb(R)^n$:
+ - $pi(bold(w))$ denotes the value $bold(n) dot bold(w) - b$
+ - _poly_($pi$) is the polynomial expression of the hyperplane
+   equation that is #linebreak() _poly_($pi$) $ attach(:=, t:"def")
+   sum_(i=1)^(i=n) n_i v_i - b$
+
+]
+
+#prop[Given $bold(n), bold(v) in bb(R)^n, b in bb(R)$ let
+$pi_(bold(n), b) attach(:=, t:"def") bold(n) dot bold(v) - b = 0$ be
+an hyperplane and $pert(bold(x))$ a perturbation of a point
+$bold(x) in bb(R)^n$ defined as @pert then
+$
+  pi_(bold(n), b) "interesect" pert(x) arrow.l.r.double.long
+  bold(x) in pi "or" sign(pi_(bold(n), b)(bold(x))) eq.not
+  sign(pi_(bold(n), b)(bold(x')))
+$
+where $bold(x') = bold(x) - epsilon dot sign(pi_(bold(n), b)
+(bold(x))) dot italic("pos_neg")^(star)(bold(n))$ and
+$italic("pos_neg")^(star)$ is the component-wise $italic("pos_neg")$
+operation over vectors in $bb(R)^n$. Essentially the
+hyperplane $pi$ interesect the perturbation of $bold(x)$ if and only
+if $bold(x)$ and the point $bold(x')$, which is the vertex of the
+hypercube $pert(x)$ in the direction of $pi$ from $bold(x)$, are on
+the oppisite side of $pi$.
+]
+#proof[
+The proposition can be proved by demonstrating each directions of the
+implication separetly:
+
+- ($arrow.r.double.long$): Suppose $pi_(bold(n), b) "interesect"
+  pert(x)$ and $bold(x) in.not pi$. Since $pi_(bold(n), b)$ is the
+  perpendicular bisector between $s_1$ and $s_2$ it means there
+  exists a point $bold(x)'' in pert(bold(x))$ such that it is
+  equidistant to both samples (i.e. $bold(x)'' in pi_(bold(n), b)$).
+  Because $bold(x)'' in pert(bold(x))$ it can be defined as
+  $
+    bold(x)'' = bold(x) - sign(pi_(bold(n), b)(bold(x))) dot
+    bold(epsilon)'' dot.circle italic("pos_neg")^(star) (bold(n))
+  $
+  where $dot.circle$ denotes the _Hadamard_ product and
+  $bold(epsilon)'' in bb(R)^n$ is a positive vector such that
+  $||bold(epsilon)''||_infinity <= epsilon$. $bold(x)'$ can also be
+  defined in terms of
+  $bold(x)''$ as
+  $
+    bold(x)'
+    &= bold(x)'' -  sign(pi_(bold(n), b)(bold(x))) dot
+       bold(epsilon)' dot.circle italic("pos_neg")^(star) (bold(n)) \
+    &= bold(x) - sign(pi_(bold(n), b)(bold(x))) dot
+       (bold(epsilon)'' + bold(epsilon)') dot.circle
+       italic("pos_neg")^(star) (bold(n))
+  $
+  for some $bold(epsilon)' in bb(R)^n$ positive vector such that
+  $|epsilon''_i + epsilon'_i| = epsilon$. With this setup $sign(pi_(
+  bold(n), b)(bold(x')))$ is as follow:
+
+  $
+    sign(pi_(bold(n), b)(bold(x')))
+
+    &= sign(bold(n) dot [bold(x) -
+       overbrace(sign(pi_(bold(n), b)(bold(x))), s)  dot
+       (bold(epsilon)'' + bold(epsilon)') dot.circle
+       overbrace(italic("pos_neg")^(star) (bold(n)), bold("dir"))]
+       + b) \
+
+    &= sign(bold(n) dot [bold(x) - s dot
+       (bold(epsilon)'' dot.circle bold("dir") +
+        bold(epsilon)'  dot.circle bold("dir"))] + b) \
+
+    &= sign(bold(n) dot [(bold(x) - s dot bold(epsilon)'' dot.circle
+       bold("dir")) - s dot bold(epsilon)' dot.circle bold("dir")]
+       + b) \
+
+    &= sign(bold(n) dot (bold(x) - s dot bold(epsilon)''
+       dot.circle bold("dir")) + b - s dot bold(n) dot
+       bold(epsilon)' dot.circle bold("dir")) \
+
+    &= sign(bold(n) dot bold(x)'' + b - s dot bold(n) dot
+       bold(epsilon)' dot.circle bold("dir")) \
+
+    &= sign(overbrace(bold(n) dot bold(x)'' + b, = 0) - s dot bold(n)
+       dot bold(epsilon)' dot.circle bold("dir")) \
+
+    &= sign(-sign(pi_(bold(n), b)(bold(x))) dot overbrace(
+       bold(n) dot bold(epsilon)' dot.circle italic("pos_neg")^(star)
+       (bold(n)), "positive")) #<crucial>\
+
+    &= -sign(pi_(bold(n), b)(bold(x))) eq.not
+    sign(pi_(bold(n), b)(bold(x)))
+  $
+
+  In @crucial $forall i in {0, dots, n-1}$ if $n_i eq.not 0$ then the
+  sign of $epsilon'_i dot italic("pos_neg")(n_i)$ is the same as
+  $n_i$ and so the sign of $n_i dot epsilon'_i dot italic("pos_neg")
+  (n_i)$ is always postive hence $bold(n) dot bold(epsilon)'
+  dot.circle italic("pos_neg")^(star) (bold(n))$ is a positive value.
+
+  In the case $bold(x) in pi_(bold(n), b)$ then the implication holds
+  vacuously.
+
+- ($arrow.l.double.long$): if $bold(x) in pi_(bold(n), b) "or"
+  sign(pi_(bold(n), b) (bold(x))) eq.not sign(pi_(bold(n), b)
+  (bold(x')))$ then it means $pi_(bold(n), b) "surely interesect"
+  pert(x) $.
+]
+
+The procedure to create the abstract precedence graph is the same as
+@create_precedence_graph with the only difference being the order
+relation used which is $attach(prec.eq, tr: A, br: x)$.
 
 #example[Consider the setup of @example11 and perturbation $pert(x)$
 where $epsilon = 0.25$ shown in the plot in @abstract-example a).
@@ -634,11 +781,15 @@ such that $pre(c, a, x: "") and npre(a, c, x: "")$ and so in the
 abstract case there are 3 valid paths.
 
 #prop[
-Given a sample $s in S$
+Given a sample $bold(s) in S$ and an abstract Precedence graph
+$bb(G)^A_bold(x)$
 $
-bb(G)^A_(x)[s].mono("predecessors") = limits(\u{22C2})_(x' in pert(x))
-bb(G)_(x_i)[s].mono("predecessors")
+mono("pred")^(A)(bold(s)) = limits(\u{22C2})_(bold(x)' in
+pert(bold(x))) mono("pred")_(bold(x)')(bold(s))
 $
+where $mono("pred")^(A)(bold(s))$ and $mono("pred")_(bold(x)')
+(bold(s))$  are the value of $predv(bold(s))$ in the graph
+$bb(G)^A_bold(x)$ ahd $bb(G)_bold(x)'$ respectively.
 ]<prop-31>
 #proof[Follows from the definition of$attach(prec.eq, tr: sscript(A),
 br: x)$
@@ -708,79 +859,33 @@ br: x)$
   [b) Abstract precedence graph])
 )<abstract-example>]
 
-== Soundness of the abstract classifier<sec-complete>
+== Path generation
 
-Given the perturbation $pert(x)$, the abstract classifier is said to
-be _sound_ if the computed set of labels contains all the output of
-the concrete classifier on each point of the perturbation that is when
-$
-limits(union.big)_(x' in pert(x)) "GKNN"(x')subset.eq"AGKNN"(pert(x))
-$
+Another difference between the concrete and abstract case is the
+definition of a valid path. To see why consider for example the set
+of samples:
 
-#theorem("Soundness")[
-Given a dataset $S = {(s^(i), y^(i)) | s^(i) in bb(R)^n, y^(i) in
-cal(L)}$ and the perturbation $pert(x)$ of the input sample $x$, then
-$
-limits(union.big)_(x' in pert(x)) "GKNN"(x')subset.eq"AGKNN"(pert(x))
-$
-]
-#proof[
-Is suffice the show that the abstract precedence graph $bb(G)^A_(x)$
-satisfy the condition
-#block()[
-  #set math.equation(numbering: "(1)")
-$
- limits(union.big)_(x' in pert(x)) mono("valid_path")(bb(G)_(x_i))
- subset.eq
- mono("valid_path")(bb(G)^A_(x))
-$<completeness>
-]
-where $mono("valid_path")(G)$ denotes the set of valid paths in
-a graph G. Without loss of generality consider a valid path $p=[v_0,
-v_1,dots,v_(k-1)]$ in $bb(G)_(x_i)$ for some $x_i in pert(x)$. By
-definition of path in graph and $pre("", "", x: x_i)$ we have that
-$
-  apre(s_0, apre(s_1, apre(dots, s_(k-1))))
-$
-This means that $p$ is also a path in $bb(G)^A_x$. Moreover since $p$
-is a valid path and, by @prop13, $forall v_i in p$
-$
-  bb(G)^A_(x)[s_i].mono("predecessors") subset
-  bb(G)_(x_i)[s_i].mono("predecessors")
-$
-$p$ satisfy the conditions of being valid also for $bb(G)^A_(x)$ and
-so $p in mono("valid_path")(bb(G)^A_(x))$
-]
-
-=== Incompleteness
-
-In general the abstract classifier is sound but not _complete_ (or
-_exact_). For example consider the set of samples:
-
-- *$s_0$*: (0.75, 1.3)
-- *$s_1$*: (1.0, 1.3)
-- *$s_2$*: (1.25, 1.3)
+- *$bold(s)_0$*: (0.75, 1.3)
+- *$bold(s)_1$*: (1.0, 1.3)
+- *$bold(s)_2$*: (1.25, 1.3)
 
 and the input perturbation $pert((1,1))$ with $epsilon = 0.05$.
 @incomplete-example a) shows the plot of the samples and the
 perturbation region while @incomplete-example b) illustrate the
-abstract graph. It easy to see that in this case the valid paths in
+abstract graph. According to @def-valid-path the valid paths in
 the abstract precedence graph are the permutations of the sequence of
-vertices $[bold(v_0), bold(v_1), bold(v_2)]$ in particular:
+vertices $[bold(s_0), bold(s_1), bold(s_2)]$ in particular:
 
-+ $[bold(v_0), bold(v_1), bold(v_2)]$
-+ $[bold(v_0), bold(v_2), bold(v_1)]$
++ $[bold(s_0), bold(s_1), bold(s_2)]$
++ $[bold(s_0), bold(s_2), bold(s_1)]$
 
-but there is no $x'in pert(x)$ such that second path is a valid path
-in $bb(G)_x'$. This is because the regions of space containing the
-points closer the sample $s_0$ (i.e. the blue region) and the one
-with point closer to sample $s_2$ than $s_1$ (i.e. the green region)
+but notice that there is no $bold(x)'in pert(bold(x))$ such that
+second path is a valid order of precedence in $bb(G)_bold(x)'$. This
+is because the regions of space containing the points closer the
+sample $bold(s)_0$ (i.e. the blue region) and the one with points
+closer to sample $bold(s)_2$ than $bold(s)_1$ (i. e. the green region)
 do not intersect.
 
-The only case in which the abstract classifier is complete is when
-$k = 1$ because in that case the vertex $v_i$ that can occur in a
-valid path is the one for which there is point $x_i in pert(x)$ such
-$s_i$ is the closest sample to $x_i$.
 
 #figure(grid(columns: 2, row-gutter: 10mm, column-gutter: 15mm,
 
@@ -829,30 +934,484 @@ $s_i$ is the closest sample to $x_i$.
         stroke: gray)
       })
 
-      plot.annotate(content((0.76,1.37), [$v_0$]))
-      plot.annotate(content((1.01,1.37), [$v_1$]))
-      plot.annotate(content((1.26,1.37), [$v_2$]))
+      plot.annotate(content((0.76,1.37), [$s_0$]))
+      plot.annotate(content((1.01,1.37), [$s_1$]))
+      plot.annotate(content((1.26,1.37), [$s_2$]))
       plot.annotate(content((1.02,1.05), [$x$]))
 
     })
   })]],
-  [ #v(50pt)#align(center)[#render("
+  [#v(50pt)#align(center)[#render("
   digraph {
-    v_0 -> v_1
-    v_1 -> v_0
-    v_0 -> v_2
-    v_2 -> v_0
-    v_1 -> v_2
-    v_2 -> v_1
-    {rank=same v_0, v_1}
-  }"
+    s_0 -> s_1
+    s_1 -> s_0
+    s_0 -> s_2
+    s_2 -> s_0
+    s_1 -> s_2
+    s_2 -> s_1
+    {rank=same s_0, s_1}
+  }",
+   labels: (:
+    s_0: [$bold(s_0)$],
+    s_1: [$bold(s_1)$],
+    s_2: [$bold(s_2)$]
+  )
 )]],
 
   [a) Plot of dataset and perturbation],
-  [b) Abstract precedence graph]), caption: [Example of incompleteness]
+  [b) Abstract precedence graph]),
+  gap: 1em,
+  caption: [Example of invalid path],
+  placement:  top
 )<incomplete-example>
 
-== Graph construction optimization
+
+== Valid Path
+
+The previous example illustrate that when adding a vertex $v$ to a
+path $p$ checking only the predecessors of the vertex do not suffice
+and the existence of a region of the perturbation containing points
+such that the samples satisfy the precedence order in $p$ must also be
+taken into consideration. This leads to the following definition for
+a valid path in the abstract case:
+
+#definition("Valid path")[Given an abstract precedence graph
+$bb(G)^A_bold(x)'$ let $cal(P) =[bold(v_0), bold(v_1),dots,
+bold(v_m)]$ be a path in $bb(G)^A_x$. The path $cal(P)$ is _valid_
+if and only if
+
+ - $forall bold(s)_i in cal(P). space forall bold(x)_j in
+    predv(bold(x)_i). space bold(x)_j "is a predecessor of "
+    bold(s)_i "in" cal(P)$
+ - $exists R subset.eq pert(bold(x)) "s.t." R eq.not emptyset and
+    forall bold(bold(x))'in R. space cal(P) "is a valid path in"
+    bb(G)_bold(bold(x))$
+]<def-abs-valid-path>
+
+The definition of a safe vertex reamins unchanged.
+
+
+To see how the sub region $R$ can be calculated consider the samples
+of the previous example. The path $[bold(s_1)]$ is valid if there is
+a region of points $R_1 in pert(bold(x))$ such that the sample
+$bold(s_1)$ is the closest to them. This means that points in $R_1$
+must satisfy the following linear system of inequalities:
+$
+  cases(
+    x_1 - 1.125 <= 0,
+    -x_1 + 0.75 <= 0,
+    0.75 <= x_1 <= 1.75,
+    0.75 <= x_2 <= 1.75,
+  )
+$
+where $x_1 - 1.25 = 0$ and $x_1 - 0.75 = 0$ are the perpendicular
+bisector between the samples $bold(s_1)$ and $bold(s_0)$ and
+samples $bold(s_1)$ and $bold(s_2)$ respectively. This region is shown
+in @sub-reg a). Consider now the path $[bold(s_1), bold(s_0)]$. This
+path is valid if it exists a region of points $R_2 in pert(bold(x))$
+such that the closest samples is $bold(s_1)$ and the second closest
+is $bold(s_0)$. So points in $R_2$ must satisfy the following linear
+system of inequalities:
+$
+  cases(
+    x_1 - 1.25 <= 0,
+    -x_1 + 0.75 <= 0,
+    x_1 - 1 <= 0,
+    0.75 <= x_1 <= 1.75,
+    0.75 <= x_2 <= 1.75,
+  )
+$<linear-system>
+where the first two inequalities define the $R_1$ region while the
+third inequality exclude from $R_1$ those points that are strictly
+closer to the sample $bold(s_2)$ than $bold(s_0)$ resulting in the
+blue region illustrated in @sub-reg b). Finally the same logic
+applies to path $[bold(s_1), bold(s_0), bold(s_2)]$ which defines
+the same the linear system as @linear-system.
+
+On the other hand the linear system of inequalities associated with
+path $[bold(s_0), bold(s_2)]$ is
+$
+  cases(
+    x_1 - 1 <= 0,
+    x_1 - 0.875 <= 0,
+    -x_1 + 1.25 <= 0,
+    0.75 <= x_1 <= 1.75,
+    0.75 <= x_2 <= 1.75,
+  )
+$
+and is shown in @incomplete-example a). As can be seen from the plot
+the two regions (i.e. the blue one containing points for which the
+sample $bold(s_0)$ is the closest one and the green containing
+points for which the sample $bold(s_2)$ is closer than $bold(s_1)$)
+do not intersect hence the linear system has no solutions. So the
+path $[bold(s_0), bold(s_2)]$ and consequently $[bold(s_0),
+bold(s_2), bold(s_1)] $ are not valid paths.
+
+To summarize, given a path $cal(P)$, the idea is to identify a
+polytope inside the perturbation region using a linear system of
+inequalities which contiains only those points for which the sequence
+of samples defined by $cal(P)$ is ordered according to distance to
+this points. Then if this polytope exists (i.e the linear system
+has solutions) it means that there is at least one concrete
+precedence graphs $bb(G)_(bold(x)')$ for some $bold(x)' in pert(x)$
+such that $cal(P)$ is valid in $bb(G)_(bold(x)')$. Conversely, if the
+linear system has no solutions, it means that no point in the
+perturbation region can produce the sequence of samples as defined by
+the path.
+
+#figure(grid(columns: 2, row-gutter: 10mm, column-gutter: 15mm,
+
+  [#align(center)[#cetz.canvas({
+    import cetz.draw: *
+    import cetz.plot
+    import cetz.palette
+
+    let opts = (
+      x-tick-step: 1, y-tick-step: 1, size: (5,5),
+      y-minor-tick-step: .10, x-minor-tick-step: .10,
+      x-grid: "both", y-grid: "both",
+      x-min: 00.5, x-max: 1.5, y-min: 0.5, y-max: 1.5,
+      plot-style: palette.dark-green,
+    )
+    let points = ((0,1), (2,1), (2.25,1),)
+    let pert = ((0.75,0.75), (0.75,1.25),
+                (1.25,1.25),  (1.25,0.75), (0.75,0.755))
+
+    set-style(axes:(tick: (minor-length: 5pt)))
+
+    plot.plot(axis-style: "school-book", ..opts, name: "plot", {
+      plot.add(((0.75,1.3),), style: (stroke: none), mark: "o",
+        mark-size: 0.2)
+      plot.add(((1.0,1.3),), style: (stroke: none), mark: "o",
+        mark-size: 0.2)
+      plot.add(((1.25,1.3),), style: (stroke: none), mark: "o",
+        mark-size: 0.2)
+      plot.add(((1, 1),), style: (stroke: none), mark: "x",
+        mark-size: 0.2,
+        mark-style: palette.dark-green(2, stroke: true))
+      plot.add(pert, style: palette.gray(1, stroke: true),
+        fill: true, fill-type:"shape", )
+
+      plot.add-vline(1.75/2, 2.25/2,
+                     style: (stroke: (dash: "dashed")))
+
+      plot.annotate({
+        rect((1.75/2,0.75),(2.25/2, 1.25),  fill: rgb(255,0,0,90),
+        stroke: gray)
+      })
+
+      plot.annotate(content((0.76,1.37), [$s_0$]))
+      plot.annotate(content((1.01,1.37), [$s_1$]))
+      plot.annotate(content((1.26,1.37), [$s_2$]))
+      plot.annotate(content((1.02,1.05), [$x$]))
+
+    })
+  })]],
+  [#align(center)[#cetz.canvas({
+    import cetz.draw: *
+    import cetz.plot
+    import cetz.palette
+
+    let opts = (
+      x-tick-step: 1, y-tick-step: 1, size: (5,5),
+      y-minor-tick-step: .10, x-minor-tick-step: .10,
+      x-grid: "both", y-grid: "both",
+      x-min: 00.5, x-max: 1.5, y-min: 0.5, y-max: 1.5,
+      plot-style: palette.dark-green
+    )
+    let points = ((0,1), (2,1), (2.25,1),)
+    let pert = ((0.75,0.75), (0.75,1.25),
+                (1.25,1.25),  (1.25,0.75), (0.75,0.755))
+
+    set-style(axes:(tick: (minor-length: 5pt)))
+
+    plot.plot(axis-style: "school-book", ..opts, name: "plot", {
+      plot.add(((0.75,1.3),), style: (stroke: none), mark: "o",
+        mark-size: 0.2)
+      plot.add(((1.0,1.3),), style: (stroke: none), mark: "o",
+        mark-size: 0.2)
+      plot.add(((1.25,1.3),), style: (stroke: none), mark: "o",
+        mark-size: 0.2)
+      plot.add(((1, 1),), style: (stroke: none), mark: "x",
+        mark-size: 0.2,
+        mark-style: palette.dark-green(2, stroke: true))
+      plot.add(pert, style: palette.gray(1, stroke: true),
+        fill: true, fill-type:"shape", )
+
+      plot.add-vline(1, style: (stroke: (dash: "dashed")))
+
+      plot.annotate({
+        rect((1.75/2,0.75),(2.25/2, 1.25),  fill: rgb(255,0,0,40),
+        stroke: gray)
+      })
+
+      plot.annotate({
+        rect((1.75/2,0.75),(1, 1.25),  fill: rgb(0,0,255,90),
+        stroke: gray)
+      })
+
+      plot.annotate(content((0.76,1.37), [$s_0$]))
+      plot.annotate(content((1.01,1.37), [$s_1$]))
+      plot.annotate(content((1.26,1.37), [$s_2$]))
+      plot.annotate(content((1.02,1.05), [$x$]))
+
+    })
+  })]],
+  [a) Region of points satisfying the path [$bold(v_1)$]],
+  [b) Region of points satisfying the path [$bold(v_1), bold(v_2)$]]),
+  gap: 1em,
+  caption: [Example of region of points denoted by a path],
+  placement: top
+)<sub-reg>
+
+@valid-path shows hoe to construct a polytope given a path and
+the bounds of the perturbation as a set, where each element is of the
+form $italic(min)_1 <= x_i <= italic(max)_i$. It builds the linear
+system of inequalities using the $mono("bisector")$ function, which,
+given two samples $bold(s)_i$ and $bold(s)_j$​, returns the
+perpendicular bisector $beta$ between them such that $beta(bold(s)_j)
+>= 0$. The algorithm begins by creating the linear system of
+inequalities from the bounds provided in the input (line $mono(1)$).
+Then it adds inequalities to ensure that the sample $bold(s)_0$ (i.e.
+the path first sample) is the closest to the perturbation (lines
+$mono("2-5")$). This is achieved by constructing the perpendicular
+bisector between $bold(s)_0$ and the samples in $samedistv(bold(s)_0)$
+using the $mono("bisector")$ function, and imposing that the
+perturbation region lies in the half-space containing $bold(s)_0$
+(lines $mono(2-4)$). Subsequently, for each next sample $bold(s)_i$ in
+the path, inequalities are added to ensure that the sample
+$bold(s)_i$ is the closest to the perturbation region after the sample
+$bold(s)_j$ $0 <= j < i$ (lines $mono(7-17)$). This is done by first
+constraining the sample $bold(s)_i$ to be closer to the perturbation
+than each sample in $samedistv(bold(s)_i)$ (lines $mono("8-11")$), and
+then ensuring that samples $bold(s)_j$ for $0 <= j < i$ are closer
+than sample $bold(s)_i$ (lines $mono("12-17")$). Finally, the created
+linear system is returned (line $mono(18)$).
+
+#algorithm(title: [$mono("build_polyhedron")$ method],
+           input: ([*$var("path")$*: A sequence of vertices, ],
+                   [*$var("bounds")$*: Bounds of the perturbation
+                     given as a set whose elements are of the form
+                     $italic(min)_1 <= x_i <= italic(max)_i$
+                   ]),
+           output: ([A linear system of inequalities],))[
+
+  $var("LSI") <- bold("bounds")$\
+
+  for $var("vertex")$ in $samedistv(var("path")[1])$ do#i\
+    $beta <- func("bisector", var("path")[1], var("vertex"))$\
+    $var("LSI") <- var("LSI") union {italic("poly")(beta) <=0 }$#d\
+  end\
+
+  $var("n") <- func("length", bold("path"))$\
+  for $var(i)$ *from* $2$ to $var("n")$ do#i\
+
+    for $var("vertex")$ in $samedistv(var("path")[i])$ do#i\
+      $beta <- func("bisector", var("path")[i], var("vertex"))$\
+      $var("LSI") <- var("LSI") union {italic("poly")(beta) <=0 }$#d\
+    end\
+
+    for $var(j)$ *from* $1$ to $var(i)-1$ do#i\
+      if $var("path")[j] in.not samedistv(var("path")[i])
+         and var("path")[j] in.not predv(var("path")[i])$ then #i\
+        $beta <- func("bisector", var("path")[j], var("path")[i])$\
+        $var("LSI") <- var("LSI") union {italic("poly")(beta) <=0}$#d\
+      end#d\
+    end#d\
+  end\
+
+  return $var("LSI")$
+]<valid-path>
+
+== Valid path generation
+
+@abstract-path-generation shows how the valid paths on length $n$ are
+generated given the abstract precedence graph $bb(G)^A_bold(x)$.
+Essentially the algorithm is same as the @path_generation with the
+only difference being that before starting to construct the paths of
+the desired length it checks whether the initial paths (i.e. those
+containing a single vertex) are valid or not (line $mono("2-7")$).
+
+#algorithm(title: [$mono("abstract_generate_paths")$ method],
+           output: ([Set of valid paths of length *n*],),
+           input: (
+            [*$G_x$*: precedence graph,],
+            [*n*: length of the path]
+           ))[
+  $var("closest_vertices") <- {v_i | v_i in bb(G)_x,space
+  predv(v_i) = emptyset}$\
+  $var("init_paths") <- {}$\
+  for $var("vertex")$ in $var("closest_vertices")$ do#i\
+    if $var("vertex") bold("is safe") #no-emph("for")
+       bold("empty_path")$ then#i\
+      $var("init_paths") <- var("init_paths") union
+                           {[var("vertex")]}$#d\
+    end#d\
+  end\
+
+  $var("queue") <- func("create_queue", var("init_paths"))$\
+  $var("k") <- 0$\
+  while #var("queue") not *empty* do#i\
+    $var("current_paths") <- var("queue").func("popAll")$\
+
+    if #var("k") = *n* then#i\
+      return #var("current_paths")#d\
+
+    for #var("current_path") in #var("current_paths") do#i\
+
+      $var("last_vertex") <- var("current_path").mono("last")()$\
+
+      for #var("adj") in $var("last_vertex").mono("adjacent")$ do#i\
+
+        if $var("adj") bold("is safe") #no-emph("for")
+           var("current_path")$
+        then#i\
+          $var("queue").func("append", var("current_path") +
+           [var("adj")])$#d\
+        end#d\
+      end#d\
+    end\
+    $var("k") <- var("k") + 1$#d\
+  end\
+]<abstract-path-generation>
+
+#prop[Given as input the the abstract precedence graph
+$bb(G)^A_bold(x)$ and the length $n in bb(N)$
+@abstract-path-generation returns all the valid paths of length $n$
+within $bb(G)^A_bold(x)$.]<abs-valid-paths>
+#proof[The proposition can be proved by showing, using induction on
+$k$, that at the $k$-th iteration of the while loop, at line 11 the
+queue contians all the valid paths of length $k-1$:
+
+  - ($k=1$):In the first iteration of the loop the queue contains all
+    the path made of a single sample $bold(s)_i$ such that:
+
+      - $predv(bold(s))_i = emptyset$ since $bold(s)_i in
+         var("closest_vertices")$ by defintion (line $mono("1")$);
+      - $exists R in pert(x) "s.t." forall bold(x)' in R. "sample"
+        bold(s_i)$ is the closest sample by defintoin (lines
+        $mono("3-7")$)
+    This means that the path $[bold(s)_i ]$ is a valid path by
+    definition
+
+  - ($k=h+1$): At iteration $h + 1$, the paths inside the queue at
+    line 11 are obtained by extending all the paths in the queue in
+    the $h$-th iteration with every safe vertex among the adjacent
+    of the path's last vertex. By induction hypothesis the queue in
+    the $h$-th iteration contains all the valid paths of length $h$
+    and since they are extended with every safe vertices it means that
+    in the $h + 1$ iteration the queue contains only and all the valid
+    paths of length $h = k - 1$.
+]
+
+== AGKNN Algorithm
+
+@agknn-algh shows how the abstract classifier works. Given the samples
+dataset $bold(S)$, the input sample $bold(x)$ and the number $k$ of
+neighbours to consider fot the classification, tt stars by
+constructing the abstract precedence graph $bb(G)^A_bold(x)$ as
+described in @apg (line $mono(("1"))$). Afterwards extracts all the
+valid paths within $bb(G)^A_bold(x)$ (line $mono(("2"))$) to then
+collect the most frequent labels in each path (line $mono("3-7")$).
+Finally the collected labels are return as the classification of the
+input (line $mono("8")$).
+
+#algorithm(
+  title: "AGKNN algoritm",
+  output: ([Set of possible classification of $x$],),
+  input: (
+    [*$var(x)$*: the input sample],
+    [*$var(S)$*: samples dataset],
+    [*$var(k)$*: number of neighbours],
+  ))[
+
+  $bb(G)^A_bold(x) <-$  #func("create_abstract_precedence_graph",
+                              $var(S)$, $var(x)$)\
+
+  $var("paths") <-$ #func("abstract_generate_paths", $bb(G)^A_bold(x)$,
+                          $k-1$)\
+  $var("classification") <- {}$\
+  for #var("path") in #var("paths") do#i\
+    $var("labels") <- "most frequent labels in "mono("path")$\
+    $var("classification") <- var("labels") union
+                              var("classification")$#d\
+  end\
+  return #var("classification")
+]<agknn-algh>
+
+=== Completeness
+As mentioned in the beginning of this chapter, given the perturbation
+$pert(bold(x))$, the abstract classifier is said to be _sound_ if the
+computed set of labels contains all the output of the concrete
+classifier on each point of the perturbation that is when
+$
+limits(union.big)_(bold(x)' in pert(bold(x))) "GKNN"(bold(x)', S, k) subset.eq
+                                  "AGKNN"(pert(bold(x)), S, k)
+$<sound>
+
+Actually the abstract classifier satisfy the stronger condition of
+being _exact_ (or _complete_) where the equality sign in @sound holds.
+In fact, as the following result shows, the abstract classifier output
+contains all and only the outputs of the concrete classifier for each
+point within the perturbation.
+
+#theorem[Given a dataset $S = {(bold(s)_i, bold(y)_i) | bold(s)_i in
+bb(R)^n, bold(y)_i in cal(L)}$ and the perturbation $pert(bold(x))$ of
+the input sample $bold(x)$, then
+$
+limits(union.big)_(bold(x)' in pert(bold(x))) "GKNN"(bold(x)', S, k) =
+                            "AGKNN"(pert(bold(x)), S, k)
+$]
+#proof[The main difference, other than the precedence relation,
+between the concrete and abstract classifier is the way they collect
+the valid paths. Since @prop13 and @abs-valid-paths ensures that both
+algorithms consider all and only the valid paths of length $k$ for
+the classification the preposition can be proven by separately
+demonstrating that:
+
+ + $limits(union.big)_(bold(x)' in pert(bold(x))) mono("valid_path")
+    (bb(G)_(bold(x)_i)) subset.eq mono("valid_path")
+    (bb(G)^A_(bold(x)))$
+
+ + $limits(union.big)_(bold(x)' in pert(bold(x))) mono("valid_path")
+    (bb(G)_(bold(x)_i)) supset.eq mono("valid_path")
+    (bb(G)^A_(bold(x)))$
+
+where $mono("valid_path")(G)$ denotes the set of valid paths in a
+graph G.
+
+/ 1): Without loss of generality consider a valid path $cal(P)=[
+      bold(s)_0, bold(s)_1,dots,bold(s)_(k-1)]$ of length $k$ in
+      $bb(G)_(bold(x)_i)$ for some  $bold(x)_i in pert(bold(x))$. By
+      definition of path in graph and $pre("", "", x: bold(x)_i)$ we
+      have that
+      $
+        apre(s_0,
+          apre(s_1,
+           apre(dots, s_(k-1), x: bold(x)_i),
+          x: bold(x)_i),
+        x: bold(x)_i)
+      $
+      This means that $cal(P)$ is also a path in $bb(G)^A_bold(x)$.
+      Moreover since $cal(P)$ is a valid path and, by @prop-31,
+      $forall v_i in cal(P)$
+      $
+        predv(bb(G)^A_(bold(x))[s_i]) subset.eq
+        predv(bb(G)_(bold(x)_i)[s_i])
+      $
+      it means that $p$ satisfy both the condition of
+      @def-abs-valid-path hence $p in
+      mono("valid_path")(bb(G)^A_(bold(x)))$.
+
+/ 2): Suppose $p$ is a valid path in $bb(G)^A_(bold(x))$. Then, by
+  definition of valid path, it means there exists $bold(x)' in
+  pert(bold(x))$ such that the path represents a valid order of
+  precedence according to the distance between the samples and
+  $bold(x)'$. This means that $p in mono("valid_path")
+  (bb(G)_(bold(x)'))$
+]
+
+== Abstract precedence graph construction optimization
 
 Since in the abstract case the query is the perturbation of the input
 rather the a single point, the algorithm to reduce the set of sample
@@ -863,597 +1422,45 @@ hypershpere must contain all the $k$ closest sample of each point in
 the perturbation.
 
 In order to find the minimum radius $r$ of the hypershpere consider
-the $k$ closest sample $A = {s_0, s_1, dots, s_(k-1)}$ to the input
-$x$ and let $s_k$ be the furthest sample from $x$ with distance $d$.
-Now consider a generic point $x' in pert(x)$ and the hypershpere
-$H_x'$ centered in $x'$ and radius the distance between $x'$ and
-$s_x' = limits("argmax")_(s_i in A) ||x'- s_i||_p$. Surely the
-set of samples in $H_x'$ is $A union B$ where B is the set (possibly
-empty) of samples closer to $x'$ than any sample in $A$. So the
-enclosing hypershpere $H$ of all the hyperspheres $H_x'$ for every
-$x' in pert(x)$ is the one that surely contains all the $k$ closest
-sample of each point in the perturbation.
+the $k$ closest sample $A = {bold(s)_1, bold(s)_2, dots, bold(s)_k}$
+to the input $bold(x)$ and let $s_k$ be the furthest sample from
+$bold(x)$ with distance $d$. Now consider a generic point $bold(x)' in
+pert(bold(x))$ and the hypershpere $H_bold(x)'$ centered in $bold(x)'$
+and radius the distance between $bold(x)'$ and $bold(s)_bold(x)' =
+limits("argmax")_(bold(s)_i in A) ||bold(x)'- bold(s)_i||$. Surely the
+set of samples in $H_bold(x)'$ is $A union B$ where B is the set
+(possibly empty) of samples closer to $bold(x)'$ than any sample in
+$A$. So the enclosing hypershpere $H$ of all the hyperspheres
+$H_bold(x)'$ for every $bold(x)' in pert(bold(x))$ is the one that
+surely contains all the $k$ closest sample of each point in the
+perturbation.
 
-Notice that given a points $y in bb(R)^n$ and  $x'in pert(x)$
+Notice that given a points $bold(y) in bb(R)^n$ and
+$bold(x)'in pert(bold(x))$
 $
-  ||x' - y||_p <= ||x - x'||_p + ||x - y||_p
+  ||bold(x)' - bold(y)|| <= ||bold(x) - bold(x)'|| +
+  ||bold(x) - bold(y)||
 $
 due to the triangular inequality property of norms. So this means that
-for every $x'in pert(x)$
+for every $bold(x)'in pert(bold(x))$
 $
-  ||x' - s_x'||_p  <= ||x - x'||_p + ||x -  s_x'||_p <=
-  sqrt(n) dot epsilon + d
-$
-where $s_x' = limits("argmax")_(s_i in A) ||x'- s_i||_p$.
-
-So the hypershpere of interest $H$ is centered in the input $x$ and
-has radius $2epsilon sqrt(N) + d$.
-
-// #figure([#align(center)[#cetz.canvas({
-//     import cetz.draw: *
-//     import cetz.plot
-//     import cetz.palette
-
-//     set-style(axes:(tick: (minor-length: 5pt)))
-//     grid((0,0), (10, 10), help-lines:true, step: .5)
-//     rect((4.5, 4.5), (5.5, 5.5), fill: rgb(0,0,0,50), stroke: gray)
-//     circle((5,5), radius: 0.08, fill: red, stroke: none)
-//     content((5.2, 5.2), [$x$])
-//     circle((7,7), radius: 0.05, fill: black)
-//     content((7.3, 7.3), [$s_k$])
-
-//     circle((6,4), radius: 0.05, fill: black)
-//     circle((5.3,4.9), radius: 0.05, fill: black)
-
-//   })]], caption: [hypershpere radius])<hypersphere>
-
-
-= A better abstract classifier
-
-One issue with the naive abstract classifier is that there are cases
-in which is not efficient. For example consider the case in which
-there are $n$ samples equidistant from the perturbation $pert(x)$
-then in this case the abstract classifier contains at least
-$
-  n! / (n-k)!
-$
-valid paths which for just $n=10$ and $k=7$ is already over $10^6$
-making the naive abstract classifier quite inefficient. The problem
-with the naive abstract classifier approach is that it explicitly
-enumerate all the possible paths before classifying the input but is
-not necessary do so. Notice that the classification of the input does
-not depend on the order of the $k$ closest samples but only on the
-number of occurrences of each label. This means that paths can be
-also be represented as set of vertices rather than a sequence.
-Moreover samples with the same labels are equivalent from the
-classification point of view. For example suppose in the previous
-example $n=10$, $k=7$ and among the $n$ samples
-- 6 samples have the label $l_1$;
-- 3 samples have the label $l_2$;
-- 1 samples have the label $l_3$
-then is easy to see that in any valid paths made by the equidistant
-samples at least 3 samples have label $l_1$ and since at most 3
-samples can have label $l_2$ the possible classifications of the
-input are the labels $l_1$ and $l_2$.
-
-This observations suggests a more efficient representation for a set
-of valid paths in $bb(G)^A_x$. For example consider an abstract
-precedence graph $bb(G)^A_x = ({v_0, v_1,v_2, v_3}, E)$ such
-that:
-
- - $V_emptyset = {v_0, v_1}$
-
- - $V_({v_0}) = {v_2, v_3}$
-
-where $V_B = {v in V | v.mono("predecessors") = B}$. With this setup
-the set of valid paths of length 2 contains the following paths:
-
- - $P_1 = {v_0, v_2, v_1}$
- - $P_2 = {v_0, v_1, v_3}$
- - $P_3 = {v_0, v_2, v_3}$
-
-Now suppose the tuple $(B, R, n) in cal(P)(V)times cal(P)(V)times
-bb(N^+)$ where $R subset.eq B$ and $|R| <= n <= |B|$ denotes the set
-of subsets of $B$ of size $n$ containing the set $R$ then the set
-$
-  A_p_(12) = {A_0 union A_1 | (A_0, A_1) in (V_emptyset, {v_0}, 2)
-                  times (V_({v_0}), emptyset, 1)}
-$
-contains exactly the path $P_1$ and $P_2$ since:
-
-- $(V_emptyset, {v_0}, 2) = {{v_0, v_1}}$
-
-- $(V_({v_0}), emptyset, 1) = {{v_2}, {v_3}}$
-
-Similarly the set
-$
-  A_p_(3) =  {A_0 union A_1 | (A_0, A_1) in (V_emptyset, {v_0}, 1)
-                  times (V_({v_0}), emptyset, 2)}
-$
-contains exactly the path $P_3$ as:
-
-- $(V_emptyset, {v_0}, 1) = {{v_0}}$
-
-- $(V_({v_0}), emptyset, 2) = {{v_2, v_3}}$
-
-This example illustrates a way of representing a set of paths
-more efficiently without enumerating all of them. Essentially the
-idea is create sets like $A = {(B_i, R_i, n_i)}_ (i in {1,dots,n})$
-containing $n$ tuples $(B_i, R_i, n_i) in cal(P)(V) times cal(P)(V)
-times bb(N^+)$ such that  $sum_(i=1)^(i=n) = k$. More formally
-
-#definition([Abstract vertex])[Given the abstract precedence graph
-$bb(G)^A_x=(V, E)$ the tuple $v^A = (B, R, n) in (cal(P)(V) without
-emptyset) times cal(P)(V) times bb(N^+)$ such that $R subset.eq B$
-and $|R|<= n <= |B|$ is called an _abstract vertex_ and represents a
-set of set of vertices, denoted with $angle.l v^A angle.r$, which is
-defined as
-$
-  angle.l v^A angle.r =  {{v_0,v_1,dots,v_(n-1)} subset.eq B | R
-  subset.eq {v_0, v_1,dots v_(n-1)} }
-$
-Basically $angle.l A, R, n angle.r$ denotes the set of subsets of $A$
-of size $n$ containing the set $R$. ]
-
-#definition[Given an abstract vertex $v^A = (B, R, n)$:
-   - $setv(v^A)$ is the underlying set of vertices of the abstract
-      vertex that is $setv(v^A) = B$.
-   - $reqv(v^A)$ are the required vertices in every set of vertex in
-      $angle.l v^A angle.r$ which means $reqv(v^A) = R$.
-   - $lenv(v^A)$ is the size of the sets in $angle.l v^A angle.r$
-      that is $lenv(v^A) = n$
-]
-
-#definition([Abstract Path])[Given the abstract precedence graph
-$bb(G)^A_x=(V, E)$ the set $sans(P)^A = {v^A_i}_ (i in {1,dots,n}) in
-cal(P)((cal(P)(V) without emptyset) times cal(P)(V) times bb(N^+))$
-containing $n$ abstract vertices is called an _abstract path_ and
-represents a set of paths in $bb(G)^A_x$, denoted with
-$angle.l.double sans(P)^A angle.r.double$, which is defined as
-$
-  angle.l.double sans(P)^A angle.r.double = {
-    limits(union.big)_(1<=i<=n) V_i | (V_1, V_2,dots, V_n) in
-    angle.l v^A_1 angle.r times angle.l v^A_2 angle.r times dots
-    times angle.l v^A_n angle.r
-  }
-$
-Essentially $angle.l.double sans(P)^A angle.r.double$ contains the
-sets of vertices obtained by taking the union of the sets of vertices
-in the cartesian product $angle.l v^A_1 angle.r times angle.l
-v^A_2 angle.r times dots times angle.l v^A_n angle.r$.]
-
-#definition[Given an abstract path $sans(P)^A = {v^A_i}_ (i in
-{1,dots,n})$
-   - $setp(sans(P)^A)$ is the set containing the underlying set of
-      each abstract vertex in $p^A$ that is $setp(p^A) = {setv(v^A) |
-      v^A in p^A}$
-
-   - $reqp(sans(P)^A)$ is the set comprising the required vertices of
-      each abstract vertex in $p^A$ that is $reqp(p^A) = {reqv(v^A) |
-      v^A in p^A}$
-
-   - $lenp(sans(P)^A)$ is the length of the abstract path and
-      represent the length the paths in $angle.l.double sans(P)^A
-      angle.r.double$ that is $lenp(sans(P)^A) =
-      limits(sum)_(i=0)^(i=n) lenv(v^A_i)$.
-
-]
-
-So following this definitions:
-
-$A_p_(12) = lr(angle.l.double { (V_emptyset, {v_0}, 2),
-             (V_({v_0}), emptyset, 1)} angle.r.double) "and"
-  A_p_(3) = lr(angle.l.double { (V_emptyset, {v_0}, 1),
-             (V_({v_0}), emptyset, 2)} angle.r.double)$
-
-
-== Abstract paths generation
-
-For a given abstract precedence graph $bb(G)^A_x=(V, E)$ not all
-abstract paths contains exclusively paths that are also valid. To
-ensure that this is the case, the set of vertices is partitioned
-according to the value of the $mono("predecessors")$ attribute. So if,
-given a subset $B subset.eq V$ of size $i$,
-$
-  V^i_B = {v in V | V.mono("predecessors") = B}
-$
-then partition is equal to the following set
-$
-  V S = {V^0_B_(01), V^1_(B_11), V^1_(B_12), dots,V^1_(B_(1i_1)),
-  V^2_(B_21),dots, V^2_(B_(2i_2)),dots, V^m_(B_(m 1)),dots,
-  V^m_(B_(m i_m))}
-$
-Afterwards the abstract paths are constructed using abstract vertices
-$v^A = (A, R, n)$ such that $A in V S$ leading to the
-addition of the following utility function:
-
-- $predv(v^A)$ denotes the set of predecessors of the vertices in
-  $setv(v^A)$ that is if $setv(v^A) = V^i_B$ then $predv(v^A) = B$
-
-With this setup a valid abstract paths is defined as:
-
-#definition([Valid abstract path])[Given the abstract precedence graph
-$bb(G)^A_x=(V, E)$ an abstract path $sans(P)^A = {v^A_i}_(i in
-{1,dots,n}) in cal(P)(V S times cal(P)(V) times  bb(N^+))$ is _valid_
-if every path in $angle.l.double A angle.r.double$ is also valid
-which occurs when for every $v_0^A in sans(P)^A$ the following
-conditions are satisfied
-
-  + $predv(v_0^A) subset.eq limits(union.big)_(v_i^A in sans(P)^A)
-    setv(v_i^A)$
-
-  + $forall v^A in sans(P)^A quad predv(v_0^A) sect setv(v^A)
-     subset.eq reqv(v^A)$
-
-The condition above essentially means that for every vertex $v$ in a
-path $p in angle.l.double sans(P)^A angle.r.double$ the predecessors
-of $v$ are also present in $p$.]<validpath>
-
-Moreover, similarly to the concrete case, not every abstract vertex
-$v^A$ is _safe_ for a valid abstract path $sans(P)^A$ in the sense
-that it could happen that by adding $v^A$ to $sans(P)^A$ the abstract
-path is no more valid. This lead to the following definition
-
-#definition([Safe abstract vertex])[Let $sans(P)^A = {v^A_i}_ (i in
-{1,dots,n})$ be a valid abstract path for a given  abstract
-precedence graph $bb(G)^A_x=(V, E)$. The abstract vertex $v^A$ is
-safe for $sans(P)^A$ if the following conditions are satisfied:
-
-- $underline(setv(v^A) in setp(sans(P)^A))$: In this case let $v_0^A
-  in sans(P)^A$ such that $setv(v^A) = setv(v_0^A)$ then $v^A$ is
-  safe for $sans(P)^A$ if and only if $reqv(v^A) = emptyset$ and
-  $lenv(v^A) + lenv(v_0^A) <= setv(v^A)$.
-
-- $underline(setv(v^A) in.not setp(sans(P)^A))$: In this cases $v^A$
-  is safe for $sans(P)^A$ if and only if the following conditions are
-  satisfied:
-
-    + $predv(v^A) subset.eq limits(union.big)_(v_i^A in sans(P)^A)
-    setv(v_i^A)$
-
-    + $ forall v_0^A in sans(P)^A quad lenv(v_0^A) >= |(reqv(v_0^A)
-        union predv(v^A)) sect setv(v_0^A)| $
-
-  Essentially together the two conditions above states it must exists
-  a set in $angle.l.double sans(P)^A angle.r.double$ that contains
-  $predv(v^A)$.]<safeabs>
-
-@safeabs only states the conditions that must be satisfied so that
-an abstract vertex can be added to an abstract path but after the
-addition the existing elements of the abstract path needs to be
-changed in order to satisfy the conditions of the @validpath.
-@extend_abs_path shows how an abstract path $sans(P)^A$ is extend
-with an abstract vertex $v^A$. It stars by first creating a copy, the
-variable $var("new_path")$, of the abstract path $sans(P)^A$ (line
-$mono(1)$) and then check whether $v^A$ is a safe vertex for
-$sans(P)^A$. If it is not safe then simply return the copied path
-unaltered (line $mono(2-3)$) otherwise if exists an abstract vertex
-$v in var("new_path")$ such that $setv(v) =  setv(v^A)$ then increase
-the size of the set of vertices in $angle.l v angle.r$ by $lenv(v^A)$
-(line $mono(4-6)$). On the other hand if no abstract vertex in
-$var("new_path")$ has the same underlying set as $v^A$ then for each
-abstract vertex $v_i^A in var("new_path")$ adds to $reqv(v_i^A)$ the
-vertices in $predv(v^A)$ that also belong to $setv(v_i^A)$ (line
-$mono(7-10)$). Finally extends $var("new_path")$ with the new abstract
-vertex $v^A$ before returning it (line $mono(11-12)$).
-
-#algorithm(
-  title: "extend_abs_path method",
-  output: ([$sans(P)^A$ extend with $v^A$ satisfying the conditions of
-            @validpath],),
-  input: (
-    [*$sans(P)^A$*: An abstract path,],
-    [*$v^A$*: An abstract vertex],
-  ))[
-
-  $var("new_path") <- sans(P)^A$ \
-
-  if not #func("safe", $sans(P)^A$, $v^A$) then#i\
-    return #var("new_path")#d\
-  end\
-
-  if $setv(v^A) in setp(var("new_path"))$ then#i\
-    $v_0^A <- v in sans(P)^A$ such that $setv(v) = setv(v^A)$\
-    $lenv(v_0^A) <- lenv(v_0^A) + lenv(v^A)$#d\
-
-  else#i\
-    for $v_i^A$ in $var("new_path")$ do#i\
-      $reqv(v_i^A ) <- reqv(v_i^A ) union (predv(v^A) sect
-                       setv(v_i^A))$#d\
-    end\
-    $var("new_path") <- var("new_path") union {v^A}$#d\
-  end\
-
-  return #var("new_path")
-]<extend_abs_path>
-
-#prop[For every valid abstract path $sans(P)^A$ and abstract vertex
-$v^A$, $mono("extend_path")(sans(P)^A, v^A)$ is
-always a valid abstract path.]<prop41>
-#proof[Let $sans(P)_1^A = mono("extend_path")(sans(P)^A, v^A)$. By
-definition if $v^A$ is not a safe for $sans(P)^A$ then $sans(P)_1^A$
-is simply an unaltered copy of $sans(P)^A$ which is valid by
-hypothesis otherwise for every abstract vertex $v_i^A in sans(P)_1^A$:
-#align(center)[$(predv(v^A) sect setv(v_i^A)) subset.eq reqv(v_i^A)$]
-
-Since for every $v_i^A in sans(P)_1^A$ $setv(v_i^A)$ is not modified
-and $reqv(v_i^A)$ is only augmented this means that the conditions of
-@validpath are satisfied and so in both cases $sans(P)_1^A$ is a
-valid abstract path.]
-
-#prop[Let $sans(P)^A$ and $v^A$ be a valid abstract path and abstract
-vertex respectively and let $sans(P)_1^A = mono("extend_path")(
-sans(P)^A, v^A)$. If $v^A$ is not safe for $sans(P)^A$ then
-$lenp(sans(P)_1^A) = lenp(sans(P)^A)$ otherwise
-$lenp(sans(P)_1^A) = lenp(sans(P)^A) + lenv(v^A)$.]<prop42>
-#proof[
-by definition of $mono("extend_path")$ if $v^A$ is not safe for
-$sans(P)^A$ then $sans(P)_1^A = sans(P)^A$ and so
-$lenp(sans(P)_1^A) = lenp(sans(P)^A)$. If $v^A$ is safe then
-$sans(P)_1^A = sans(P)^A union {v^A}$ and so
-$
-  lenp(sans(P)_1^A) = lenp(sans(P)^A) + lenv(v^A)
-$
-by definition of the $mono("len")^star$ function.
-]
-
-The method $mono("extend_path")$ is used for the generation of
-abstract paths of length $k$. @generate_abs_paths shows how, given
-an abstract precedence graph $G_x^A = (V, E)$ and the length $k$, the
-abstract paths of length $k$ are generated. It make use of three
-quantities:
- - The variable $n$, which denotes the length of the abstract paths
-   being created.
- - The variable #var("abs_vertices") which is a set containing the
-   abstract vertices that will be used to extend the abstract paths.
- - The variable #var("abs_paths") which is a set containing the
-   abstract paths being generated.
-
-The algoritm starts by initializing the variable $n$ with 0,
-#var("abs_vertices") with the set containing all the abstract vertices
-$v^A$ such that
-  - $setv(v^A) = V_B eq.not emptyset$ where  $V_B = {v in V|
-    v.mono(("predecessors") = B)}$ for some $B subset.eq V$
-  - $reqv(v^A) = emptyset$
-  - $lenv(v^A) = 1$
-and #var("abs_paths") with a set containing the valid abstract path of
-length 1 (lines $mono("1-3")$). Then repeat indefinitely the following
-(lines $mono("4-17")$):
-
-  + Increase $n$ by 1 and check wether the paths in #var("abs_paths")
-    are of the desired length $k$ and if this is the case then simply
-    return the set #var("abs_paths") (lines $mono("5-8")$).
-
-  + Construct a new set of abstract paths by extending each abstract
-    path in #var("abs_paths") with the safe abstract vertices in
-    #var("abs_vertices") through the method $mono("extend_abs_path")$
-    and afterwards assign it to #var("abs_paths")
-    (lines $mono("9-16")$).
-
-#algorithm(
-  title: "generate_abstract_paths method",
-  output: ([Set of abstract paths of length $k$],),
-  input: (
-    [*$G_x^A$*: An abstract precedence graph, ],
-    [*$k$*: Required length of the abstract path],
-  ))[
-
-  $var("n") <- 0$\
-  $var("abs_vertices") <- {(V_B, emptyset, 1) | B in V}  without
-                          {(emptyset, emptyset, 1)}$\
-  $var("abs_paths") <- {{(V_emptyset, emptyset, 1)}}$\
-
-  while true do#i\
-
-    $var("n") <- var("n") + 1$\
-    if $var("n")$ = *k*#i\
-        return #var("abs_paths")#d\
-    end\
-
-    $var("new_abs_paths") <- emptyset$\
-
-    for #var("abs_vertex") in #var("abs_vertices") do#i\
-      for #var("abs_path") in #var("abs_paths") do#i\
-
-        $var("new_abs_path") <- func("extend_path", var("abs_path"),
-                                      var("abs_vertex"))$\
-        if $var("new_abs_paths") eq.not #var("abs_path")$#i\
-          $var("new_abs_paths") <- var("new_abs_paths") union
-                                   {var("new_abs_path")}$#d\
-        end#d\
-      end#d\
-    end\
-
-    $var("abs_paths") <- var("new_abs_paths")$\
-    end#d\
-  end
-]<generate_abs_paths>
-
-#prop[@generate_abs_paths generates all the valid abstract paths of
-the desired length $k$.]
-#proof[
-The proposition can be proven by showing that in the $i$-th iteration
-of the while loop, at line $mono(5)$ (i.e. before the check on the
-length) the #var("abs_paths") contains all the valid abstract path of
-length $i$. We use induction on $i$:
-
-  - $underline((i = 1))$: In the first iteration #var("abs_paths")
-    contains only the abstract path ${(V^0_emptyset, emptyset, 1)}$
-    which is valid by definition. Moreover it is easy to see that is
-    also the only valid path of length 1.
-
-  - $underline((i = h+1))$: Let $H$ be the set #var("abs_paths") in
-    the $h$-th iteration. So in the $h+1$-th iteration the abstract
-    paths in #var("abs_paths") are obtained by extending each paths in
-    $H$ with all the possible safe abstract vertices $v^A$ with
-    length 1 and $reqv(v^A) = emptyset$. By induction hypothesis
-    every abstract path in $H$ are valid with length $h$ and so, by
-    @prop41 and @prop42 each path in #var("abs_paths") is also valid
-    and has length $h+1$. This means that #var("abs_paths") contains
-    all the valid abstract path of length $h+1$
-
-So at iteration $k$ of the while the algorithm returns all the valid
-abstract paths of the desired length $k$.]
-
-#prop[Given an abstract precedence graph $G_x^A = (V, E)$ and $k in
-bb(N^+)$ let $A P_k$ be the set of valid abstract paths of length $k$
-(i.e. $A P_k = mono("generate_abs_paths")(G_x^A, k)$). Then the set
-$
-  C P_k = limits(union.big)_(P_i^A in A P_k) angle.double.l P_i^A
-        angle.double.r
-$
-contains all the possible valid paths of length $k-1$ in $G_x^A$.
-]<prop44>
-
-#proof[The proposition can be proved using induction on the length
-$k$ of the abstract paths in $A P_k$:
-
-   - $underline((k = 1))$: In this case $A P_k = {{(V_emptyset,
-     emptyset, 1)}}$ and by definition of the $angle.double.l dot
-     angle.double.r$ operator
-     $
-      C P_k = angle.double.l {(V_emptyset, emptyset, 1)}
-       angle.double.r = {{v} | v in V_emptyset} = {{v} | v in V and
-                               v.mono("predecessors") = emptyset}
-     $
-
-     So $C P_k$ contains all the paths made of a single vertex $v in
-     V$ such that $v.mono("predecessors") = emptyset$ which by
-     definition are valid and with length $k-1$.
-
-   - $underline((k = h + 1))$: In this case, by definition of the
-     method $mono("generate_abs_paths")$ and because $A P_k =
-     mono("generate_abs_paths")(G_x^A, k)$, the abstract paths in
-     $A P_k$ are obtained by extending each path in $A P_h =
-     mono("generate_abs_paths")(G_x^A, h)$, where $h in bb(N^+)$, with
-     all the possible safe abstract vertices in the set
-     $
-        A V = {(V_B, emptyset, 1) | B in V}  without
-              {(emptyset, emptyset, 1)}
-     $
-
-     This means that, following the definition of $angle.double.l dot
-     angle.double.r$ operator and safe abstract vertex
-     $
-        C P_k = {sans(P) union {v} | sans(P) in C P_h and
-                exists thin v^A in A V "s.t." predv(v^A) subset.eq
-                sans(P) and v in angle.l v^A angle.r}
-     $
-     In other words $C P_k$ is obtained by adding every safe vertex
-     $v in V$ to each path of $C P_h$. By induction hypothesis $C P_h$
-     contains all the valid paths of length $h-1$ so it follows that
-     $C P_k$ will contains all the valid paths of length $h=k-1$
-]
-
-== Classification
-
-For the classification of the input once all the abstract path of
-length $k$ are generated, it is necessary to compute all the possible
-occurrences of labels in the paths represented by the abstract paths.
-To do so let $mono("labels"): (cal(P)(V) without emptyset) times
-cal(P)(V) times bb(N^+) -> cal(P)(cal(P)(V times bb(N^+)))$ be a
-function that given an abstract vertex $v^A$ yields a set whose
-elements are multisets (or bag) @MSet quantifying the occurrences of
-each label found in some vertex sets within $angle.l v^A angle.r$.
-To understand how the function $mono("labels")$ is defined notice
-that an element $A$ of $angle.l v^A angle.r$ is the union of the set
-$reqv(v^A)$ and a subset $B$ of $setv(v^A) without reqv(v^A)$ with
-size $lenv(v^A) - |reqv(v^A)$|. So if $R_L$ and $B_L$ are the
-multisets containing the labels in $reqv(v^A)$ and $setv(v^A) without
-reqv(v^A)$ respectively then the function $mono("labels")$ is defined
-as
-$
-  mono("labels")(v^A) = {R_L plus.circle B | &B subset.eq B_L}
-$
-where $plus.circle$ is the sum operation between multisets.
-
-With the function $mono("labels")$ its easy to define the function
-$mono("labels")^(star)$ that given an abstract path $sans(P)^A$
-return a set of multisets each expressing the occurrences of the
-labels in a path within $angle.l.double sans(P)^A angle.r.double$.
-So given the abstract path $sans(P)^A = {v^A_i}_(i in {1,dots,n})$
-the function $mono("labels")^(star): cal(P)(cal(P)((cal(P)(V) without
-emptyset) times cal(P)(V) times bb(N^+))) -> cal(P)(cal(P)(V times
-bb(N^+)))$ is defined as
-$
-  mono("labels")^(star)(sans(P)^A) = {A_0 plus.circle A_1 plus.circle
-   dots plus.circle A_n | A_i in mono("labels")(v^A_i), i in
-   {1,dots,n}}
+  ||bold(x)' - bold(s)_bold(x)'|| <= ||bold(x) - bold(x)'|| +
+  ||bold(x) -  bold(s)_bold(x)'|| <= sqrt(N) dot epsilon + d
 $
 
-Once all the multisets are generated then all the possible
-classifications of the input are the most frequent labels in each
-multisets.
+Since the maximum radius of $H_x'$ for any $x' in pert(x)$ is
+$sqrt(N) dot epsilon + d$ it means the hypershpere of interest $H$ is
+centered in the input $x$ and has radius $2epsilon sqrt(N) + d$.
 
-== Abstract classifier
-
-@abs_classifier illustrate how the abstract classifier works which
-is not too much different from the naive abstract classifier. Given
-as input the set of samples $S$, the input $x$ to be classified, the
-degree of perturbation $epsilon$ applied to the input and the number
-$k$ of neighbours to consider for the classification, the algorithm
-starts by creating the abstract precedence graph $bb(G)^A_x$ (line
-$mono("1")$) which is then used to generate all the possible valid
-abstract paths of length $k$ (line $mono("2")$). Afterwards the set
-containing all the possible classification of the input $x$ is
-constructed which is then return at the end (line $mono("3-11")$).
-To do so, for each abstract path generated before, the multisets
-expressing all the possible occurrences of each label is computed and
-then the most frequent labels are collected from each multiset (line
-$mono("5-10")$).
-
-#algorithm(
-  title: "AGKNN2 algorithm",
-  output: ([Set of possible classifications of the input],),
-  input: (
-    [*$x$*: the input sample],
-    [*$epsilon$*: the degree of perturbation],
-    [*$S$*: samples dataset],
-    [*$k$*: number of neighbours],
-  ))[
-
-  $bb(G)^A_x <-$  #func("create_abstract_precedence_graph",
-                      $S$, $x$, $epsilon$)\
-
-  $var("abs_paths") <- func("generate_abstract_paths", bb(G)^A_x, k)$\
-  $var("classifications") <- emptyset$\
-  for #var("abs_path") in #var("abs_paths") do#i\
-    $var("abs_path_labels")<-bold("labels"^(star))(var("abs_path"))$\
-    for #var("labels") in #var("abs_path_labels") do#i\
-      $var("most_frequent") <- "most frequent labels in"
-                               var("labels")$\
-      $var("classifications") <- var("classifications") union
-                                {var("most_frequent")}$#d\
-    end#d\
-  end\
-  return #var("classifications")
-]<abs_classifier>
-
-#theorem[Given the dataset $S = {(s^(i), y^(i)) | s^(i) in bb(R)^n,
-y^(i) in cal(L)}$ and the perturbation $pert(x)$ of the input sample
-$x$, AGKNN and AGKNN2 are equivalent that is for every $k in bb(N^+)$
-and $epsilon in bb(R)$
-$
-  "AGKNN"(x, epsilon, S, k) = "AGKNN2"(x, epsilon, S, k)
-$]
-#proof[The equivalence derive from the fact that both AGKNN and
-AGKNN2 classify the input by computing the most frequent labels in
-every valid path of length $k-1$. This is valid for AGKNN because it
-is an explicit part of its definition while AGKNN2 indirectly
-accomplishes this due to @prop44, since the set of all abstract valid
-path of length $k$ is representative of  all valid paths of length
-$k-1$, therefore AGKNN2 inherently considers the full spectrum of
-label frequencies found within any valid path of length $k-1$.]
+#pagebreak()
 
 == Comparison with NAVe
 
-Some comparisons with Nave tool with perturbation $epsilon = 0.01$ and
-interval domain.
-
-
+Some comparisons with Nave tool using the euclidean norm and interval
+domain.
 
 #tablex(
-  columns: 9,
+  columns: 10,
   align: center + horizon,
   auto-vlines: false,
   repeat-header: true,
@@ -1461,33 +1468,58 @@ interval domain.
 
   /* --- header --- */
   rowspanx(2)[*Dataset*],
+  rowspanx(2)[*$epsilon$*],
   colspanx(2)[*Runtime (mm:ss)*], (), (),
   rowspanx(2)[],
   colspanx(2)[*Stability*], (),
   rowspanx(2)[],
   colspanx(2)[*Robustness*], (),
 
-  (), [*NAVe*], [*AGKNN2*], (), [*NAVe*], [*AGKNN2*],
-  (), [*NAVe*], [*AGKNN2*],
+  (), (), [*NAVe*], [*AGKNN*], (), [*NAVe*], [*AGKNN*],
+  (), (), [*NAVe*], [*AGKNN*],
   /* -------------- */
-  rowspanx(5)[Fourclass],rowspanx(5)[00:01], rowspanx(5)[00:09],
+  rowspanx(10)[Fourclass],
+  rowspanx(5)[$0.01$], rowspanx(5)[00:01], rowspanx(5)[00:01],
   [k=1], [99.2], [99.6], [], [99.2], [99.6],
   [k=2], [98.4], [98.4], [], [98.4], [98.4],
   [k=3], [99.6], [99.6], [], [99.6], [99.6],
   [k=5], [98.4], [98.8], [], [98.4], [98.8],
   [k=7], [97.7], [98.4], [], [97.7], [98.4],
-  rowspanx(5)[Pendigits],rowspanx(5)[10:16], rowspanx(5)[09:54],
-  [k=1], [96.7], [97.7], [], [95.6], [96.4],
-  [k=2], [94.0], [95.3], [], [93.3], [94.5],
-  [k=3], [96.1], [97.8], [], [95.3], [96.6],
-  [k=5], [95.7], [97.7], [], [94.9], [96.4],
-  [k=7], [95.0], [97.6], [], [94.1], [96.2],
-  rowspanx(5)[Letter],rowspanx(5)[37:44], rowspanx(5)[30:33],
-  [k=1], [82.7], [88.6], [], [82.2], [87.8],
-  [k=2], [70.4], [78.4], [], [70.4], [78.3],
-  [k=3], [75.1], [85.9], [], [75.0], [85.5],
-  [k=5], [69.5], [83.5], [], [69.4], [83.0],
-  [k=7], [65.2], [82.1], [], [65.1], [81.7]
+  rowspanx(5)[$0.05$], rowspanx(5)[00:01], rowspanx(5)[00:04],
+  [k=1], [45.0], [71.3], [], [45.0], [71.3],
+  [k=2], [39.9], [65.1], [], [39.9], [65.1],
+  [k=3], [42.6], [71.7], [], [42.6], [71.7],
+  [k=5], [40.3], [72.8], [], [40.3], [72.8],
+  [k=7], [37.6], [74.4], [], [37.6], [74.4],
+
+  rowspanx(10)[Pendigits],
+  rowspanx(5)[$0.01$], rowspanx(5)[11:39], rowspanx(5)[00:37],
+  [k=1], [96.7], [97.8], [], [95.6], [96.5],
+  [k=2], [94.0], [96.2], [], [93.3], [95.2],
+  [k=3], [96.1], [98.1], [], [95.3], [96.8],
+  [k=5], [95.7], [98.3], [], [94.9], [96.6],
+  [k=7], [95.0], [98.1], [], [94.1], [96.2],
+  rowspanx(5)[$0.05$], rowspanx(5)[11:53], rowspanx(5)[07:14],
+  [k=1], [59.0], [81.7], [], [59.0], [81.5],
+  [k=2], [52.6], [79.7], [], [52.6], [79.5],
+  [k=3], [60.6], [85.4], [], [60.6], [85.2],
+  [k=5], [59.8], [86.2], [], [59.7], [85.9],
+  [k=7], [58.9], [86.6], [], [58.9], [86.2],
+
+  rowspanx(10)[Letter],
+  rowspanx(5)[$0.01$],rowspanx(5)[29:45], rowspanx(5)[06:55],
+  [k=1], [82.7], [88.7], [], [82.2], [87.9],
+  [k=2], [70.4], [79.9], [], [70.4], [79.7],
+  [k=3], [75.1], [87.4], [], [75.0], [86.8],
+  [k=5], [69.5], [86.6], [], [69.4], [85.8],
+  [k=7], [65.2], [86.0], [], [65.1], [85.1],
+
+  rowspanx(5)[$0.02$],rowspanx(5)[30:30], rowspanx(5)[10:47],
+  [k=1], [54.6], [73.0], [], [54.6], [72.9],
+  [k=2], [42.1], [61.4], [], [42.1], [61.4],
+  [k=3], [45.4], [70.6], [], [45.4], [70.6],
+  [k=5], [40.3], [70.8], [], [40.3], [70.7],
+  [k=7], [37.0], [69.6], [], [37.0], [69.5]
 )
 
 

@@ -1,4 +1,5 @@
 #import "@preview/ctheorems:1.1.2": *
+#import "@preview/equate:0.2.1": *
 
 
 
@@ -18,9 +19,16 @@
     lang: "en"
   )
   set heading(numbering: "1.1")
+
+  show outline.entry.where(
+    level: 1
+  ): it => {
+    v(12pt, weak: true)
+    strong(it)
+  }
   set terms(hanging-indent: 0pt)
   show bibliography: set heading(numbering: none)
-  set math.equation(supplement: [Eq.])
+  set math.equation(supplement: [Eq.], block: true, numbering: "(1.1)")
 
   show: thmrules.with(qed-symbol: $square$)
   show list: it => [#pad(left: 15pt, it)]
@@ -33,6 +41,8 @@
   } else {
     it.body
   }
+  show: equate.with(breakable: true, sub-numbering: true,
+                    number-mode: "label")
 
   show "P(x)": _ => [$sans(P)^(epsilon)(x)$]
   show "GKNN": _ => $"XXYYZZ"$
