@@ -1452,9 +1452,121 @@ Since the maximum radius of $H_x'$ for any $x' in pert(x)$ is
 $sqrt(N) dot epsilon + d$ it means the hypershpere of interest $H$ is
 centered in the input $x$ and has radius $2epsilon sqrt(N) + d$.
 
+
+= Optimizations
+
+One problem with the @agknn-algh is that is quite inefficient. For
+example consider the case in which there are $n$ samples equidistant
+from the perturbation $pert(bold(x))$ then in this case the abstract
+precedence graph could contains at least
+$
+  n! / (n-k)!
+$
+valid paths which for just $n=10$ and $k=7$ is already over $10^6$
+making the naive abstract classifier quite inefficient because it explicitly enumerate all the possible paths of length $k$ before classifying the input. To overcame this problem there are several optimizations that can be used to acceletare the classification process:
+
+/ Opt. 1): Suppose that in a valid path $cal(P)$ of length
+    $m < k$ the two most common labels $cal(l)_1$ and $cal(l)_2$ have
+    $t_1$ and $t_2$ occurrences respectively then if
+    $t_1 - t_2 >= k - m$ it means that $cal(l)_1$ will be among the
+    dominant labels regardless of the last $k - m$ samples of the
+    path. So there is no need to further extend the path and the
+    label $cal(l)_1$ can be added among the possible classifications
+    of the input.
+
+/ Opt. 2): One special case of *Opt. 1)* is when the first
+    $ceil(k/2)$ samples of a valid path $cal(P)$ have the same label
+    $cal(l)$ then again there is need to extend the path further and
+    $cal(l)$ can be added among the possible classifications of the
+    input.
+
+/ Opt. 3): For the input to be classified with label $cal(l)$ is
+    sufficient to find a single valid path within the abstract
+    precendence graph having $cal(l)$ among the most common labels,
+    This means once such path is found there is no need to search for
+    other paths with $cal(l)$ as the most occurring label.
+
+Following the optimisations listed above the abstract classifier
+become as shown in @opt-agknn-algh. It sarts by constructing the
+abstract precedence graph and the collecting then distinct labels
+among the samples of the graph (line $mono("1-2")$). Then for each
+label $cal(l)$ construct the set $var("paths")$ of valid paths made
+only of samples with $cal(l)$ label (line $mono("5")$) and then check
+whether the *Opt. 2* optimisation can be applied to any such
+constructed path. If this is the case then add label $cal(l)$ among
+the possibile classification of the input and continue to the next
+label (line $mono("6-9")$). Otherwise following the observation of
+*Opt 3.* search for a path that satisfy the condition of *Opt 1.*
+(line $mono("10-19")$). To do so initialize with the set
+$var("paths")$ a priority queue where the priority is the tuple
+$("n. occurrence of" cal(l),"path length")$ (line $mono("10")$). Then
+until the queue is not empy extract the path with the highest
+priority and extend it with all the possibile safe samples among the
+adjacent of the path last sample such that the label $cal(l)$ remains
+one of the most occurring label and check whether the *Opt. 1* can be
+applied to any such generated paths and if so add label $cal(l)$ to
+the possibile classifications of the input and continue to the next
+label (line $mono("11-17")$). Otherwise add the generated paths to
+priority queue (line $mono("18")$). At the end return the possibile
+classifications of the input (line $mono("21")$).
+
+#algorithm(
+  title: "Optimised AGKNN algoritm",
+  output: ([Set of possible classification of $x$],),
+  input: (
+    [*$var(x)$*: the input sample],
+    [*$var(S)$*: samples dataset],
+    [*$var(k)$*: number of neighbours],
+  ))[
+
+  $bb(G)^A_bold(x) <-$  #func("create_abstract_precedence_graph",
+                              $var(S)$, $var(x)$)\
+
+  $var("possible_labels") <- $ distinct labels among the samples
+                             #no-emph("in") $bb(G)^A_bold(x)$\
+
+  $var("classification") <- {}$\
+  for $var("label")$ in $var("possible_labels")$ do#i\
+
+    $var("paths") <- func("generate_init_valid_paths", bb(G)^A_bold(x),
+                                                       var("label"))$\
+
+    if *Opt. 2* can be applied #no-emph("to") any path #no-emph("in")
+       $var("paths")$ then#i\
+
+      $var("classification") <- {var("label")} union
+                                var("classification")$\
+      $bold("continue")$#d\
+
+    end\
+
+    $var("queue") <- func("init_priority_queue", var("paths"))$\
+
+    while $var("queue")$ not *empty* do#i\
+      $var("path") <- var("queue").bold("pop")()$\
+
+      $var("new_paths") <- func("extend_path", var("path"))$\
+
+      if *Opt. 1* can be applied #no-emph("to") any path
+       #no-emph("in") $var("new_paths")$ then#i\
+
+        $var("classification") <- {var("label")} union
+                                  var("classification")$\
+        $bold("break")$#d\
+
+      end\
+
+      $var("queue").bold("add")(var("new_paths"))$#d\
+
+    end#d\
+
+  end\
+
+  return #var("classification")
+]<opt-agknn-algh>
 #pagebreak()
 
-== Comparison with NAVe
+= Comparison with NAVe
 
 Some comparisons with Nave tool using the euclidean norm and interval
 domain.
